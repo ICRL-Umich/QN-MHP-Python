@@ -8,7 +8,8 @@ Created on Tue Aug  6 09:27:13 2024
 """GUI windows used to define parameters for individual basic behavior elements."""
 
 import tkinter as tk
-from tkinter import ttk 
+import math
+from tkinter import ttk, messagebox 
 from utility import save_user_input as save
 from utility import look_for_ls,color_dic,has_saved_input
 
@@ -158,6 +159,9 @@ class GUI_BE_Mouseclick:
     def entry_event(self):
     
         global mouse_click_dimension_dic
+        if self.mouse_click_dimension[self.task_no].get() not in ('1', '2', '3'):
+            messagebox.showwarning('Missing Mouse Click Parameter', 'Select 1D, 2D or 3D before saving.', parent=self.root)
+            return
         mouse_click_dimension_dic = _load_saved_dict(path+'/mouse_click_dimension.txt')
         mouse_click_dimension_dic[eval(self.task_no)] = self.mouse_click_dimension[self.task_no].get()
         save(saved).save_var(mouse_click_dimension_dic, path+'/mouse_click_dimension.txt')
@@ -166,75 +170,50 @@ class GUI_BE_Mouseclick:
 
 
 class GUI_BE_Lookat:
-    def __init__(self,task_no,saved_,path_):
-        
-        global saved,path
-        saved=saved_
-        path=path_
-    
-        self.root = tk.Tk()    
-        sw=self.root.winfo_screenwidth()        #screen width
-        sh=self.root.winfo_screenheight()       #screen height
-        ww=650    #window width
-        wh=250   #window height
-        x=(sw-ww)/2  #window coordinate (left_up point)
-        y=(sh-wh)/2  #window coordinate
-        self.root.title('Look_At')
-        self.root.geometry('%dx%d+%d+%d'%(ww,wh,x,y))
-        self.task_no=task_no
-        self.Lookat()
-        
-    def Lookat(self):
-        self.lookat={}
-        tk.Label(self.root,text='Input eye location after "Look at": ',font=("Times New Roman",20)).grid(row=0,column=0,padx=30,pady=10)
-        
-        # Row for X-axis input
-        tk.Label(self.root, text='Input the X-axis of eye location (integer 1-9):', font=("Times New Roman", 16))\
-            .grid(row=1, column=0, padx=30, pady=10, sticky='w')
-        self.lookat["x",self.task_no] = tk.Entry(self.root, width=15)
-        self.lookat["x",self.task_no].grid(row=1, column=1, ipady=3)
+    """Explain automatic gaze targets; developers edit look_at_layout.json."""
+    def __init__(self, task_no, saved_, path_):
+        import json
+        from pathlib import Path
+        import eye_movement_model as eye_model
+        from gui_general import task_info_dic
+        self.root = tk.Tk()
+        self.root.title('Look At - Automatic Target Configuration')
+        config = json.loads(Path(__file__).with_name('look_at_layout.json').read_text(encoding='utf-8'))
+        # Determine whether this task contains only Look At from the saved
+        # task definition. Tasklist_dic is created only after Start is pressed.
+        task_number = str(task_no)
+        task_column = next((column for column in range(1, 6)
+                            if str(task_info_dic.get((1, column), '')) == task_number), None)
+        if task_column is None:
+            raise ValueError('Task %s was not found in the saved task definition.' % task_number)
+        elements = [task_info_dic.get((row, 2 * task_column - 1), '')
+                    for row in range(2, 18)]
+        elements = [element for element in elements if element]
+        standalone = elements == ['Look_at']
+        prefix = 'standalone' if standalone else 'combined'
+        mode = config[prefix + '_target_mode']
+        width, height = eye_model.SCREEN_WIDTH_MM, eye_model.SCREEN_HEIGHT_MM
+        tk.Label(self.root, text='Look At - Automatic Eye Target', font=('Arial', 18, 'bold')).pack(padx=20, pady=12)
+        tk.Label(self.root, text='Screen: %g × %g mm | Viewing distance: %g mm' %
+                 (width, height, eye_model.VIEWING_DISTANCE_MM)).pack(padx=20, pady=6)
+        tk.Label(self.root, text='Initial fixation: screen center (%g, %g) mm (default)' %
+                 (width/2, height/2)).pack(padx=20, pady=6)
+        if mode == 'random':
+            description = 'Target: randomly generated on the screen for each stimulus.'
+        else:
+            key = prefix + ('_fixed_target_mm' if standalone else '_target_mm')
+            pos = config[key]
+            description = 'Target: fixed at (%g, %g) mm.' % (pos['x_mm'], pos['y_mm'])
+        tk.Label(self.root, text=description).pack(padx=20, pady=6)
+        tk.Label(self.root, text='Developers: edit look_at_layout.json to change target mode/position;\n'
+                 'edit eye_movement_model.py to change the initial fixation.',
+                 justify='center', fg='#444444').pack(padx=20, pady=8)
+        tk.Button(self.root, text='Close', command=self.root.destroy).pack(pady=12)
+        self.root.update_idletasks()
+        w, h = max(660, self.root.winfo_reqwidth()+25), self.root.winfo_reqheight()+25
+        self.root.geometry('%dx%d' % (w,h))
 
-        # Row for Y-axis input
-        tk.Label(self.root, text='Input the Y-axis of eye location (integer 1-9):', font=("Times New Roman", 16))\
-            .grid(row=2, column=0, padx=30, pady=10, sticky='w')
-        self.lookat["y",self.task_no] = tk.Entry(self.root, width=15)
-        self.lookat["y",self.task_no].grid(row=2, column=1, ipady=3)
-                
-        if has_saved_input(path+'/lookat.txt'):
-            eye = _load_saved_dict(path+'/lookat.txt')
-            if ('x', eval(self.task_no)) in eye:
-                self.lookat["x",self.task_no].insert(0, eye[("x", eval(self.task_no))])
-            if ('y', eval(self.task_no)) in eye:
-                self.lookat["y",self.task_no].insert(0, eye[("y", eval(self.task_no))])
-       
-        self.Button_ok=tk.Button(self.root,text='Save and Go Back',font=16,command=self.entry_event)
-        self.Button_ok.grid(row=3,rowspan=3,column=2,columnspan=1,pady=30,ipady=3,ipadx=7)
-    #Ziqi's modification of type checking        
-    def entry_event(self):
-        global eyeloc_ini
-        try:
-            eyeloc_ini = _load_saved_dict(path+'/lookat.txt')
-            eyeloc_ini[("x", eval(self.task_no))] = int(self.lookat["x",self.task_no].get())
-            eyeloc_ini[("y", eval(self.task_no))] = int(self.lookat["y",self.task_no].get())
-            if eyeloc_ini[("x", eval(self.task_no))] < 0 or eyeloc_ini[("x", eval(self.task_no))] > 9:
-                raise ValueError
-            if eyeloc_ini[("y", eval(self.task_no))] < 0 or eyeloc_ini[("y", eval(self.task_no))] > 9:
-                raise ValueError
-            save(saved).save_var(eyeloc_ini, path+'/lookat.txt')
-            self.root.destroy()
-        except ValueError:
-            self.show_error_message()
-            return #Ziqi's edition
-            
-    def show_error_message(self):
-        error_window = tk.Toplevel(self.root)
-        error_window.title("Error")
-        error_window.geometry("300x100")
-        error_label = tk.Label(error_window, text="Please enter an integer between 1 and 9 for the initial eye location.", font=("Arial", 12))
-        error_label.pack(pady=20)
-        ok_button = tk.Button(error_window, text="OK", command=error_window.destroy)
-        ok_button.pack()
-    
+
 class GUI_BE_Judgei:
     def __init__(self,task_no,saved_,path_):
         

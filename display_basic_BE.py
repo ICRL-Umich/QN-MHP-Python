@@ -12,8 +12,9 @@ from tkinter import messagebox
 from gui_general import task_info_dic
 from qn_mhp_layout import myCanvas
 from utility import color_changer, look_for_ls,color_list,text_list
+from mouse_click_layout import button_geometry, button_depth
 
-if 'Press_button' in task_info_dic.values():
+if 'Press_button' in task_info_dic.values() or 'Mouse_click' in task_info_dic.values():
     class reaction_press_button:
    
         def __init__(self,task_no):
@@ -21,6 +22,18 @@ if 'Press_button' in task_info_dic.values():
             self.task_no = task_no
             from gui_basic_BE import choice_N
             self.N = choice_N[self.task_no]
+            from gui_basic_BE import mouse_click_dimension_dic
+            # Only Choice + Mouse_click uses dimension-specific button layouts.
+            # Choice + Press_button retains its familiar horizontal layout.
+            self.choice_mouse_click = False
+            self.dimension = 1
+            try:
+                from basic_BE import Tasklist_dic, _is_choice_mouse_click
+                if _is_choice_mouse_click(Tasklist_dic[self.task_no]):
+                    self.choice_mouse_click = True
+                    self.dimension = int(mouse_click_dimension_dic[self.task_no])
+            except (KeyError, ValueError, TypeError):
+                pass
         
         def background(self,sti_type):
             self.root = tk.Tk()
@@ -28,7 +41,7 @@ if 'Press_button' in task_info_dic.values():
             self.h = self.root.winfo_screenheight() / 5
             self.frame = myCanvas(self.root, self.w, self.h)  # Assuming myCanvas is defined elsewhere
             self.frame.canvas.pack(fill="both", expand=True)
-            self.root.title('Reaction')
+            self.root.title('Mouse Click — %sD' % self.dimension if self.choice_mouse_click else 'Reaction')
             self.root.geometry('%dx%d+%d+%d' % (self.w, self.h, 0, self.root.winfo_screenheight() / 1.7))
             
             
@@ -47,8 +60,13 @@ if 'Press_button' in task_info_dic.values():
                 else:
                     for c in range(N):
                         color = color_list[c]
-                        frame.canvas.create_rectangle(w / (N + 1) * c + 30, h / 2 - 18, w / (N + 1) * c + 150, h / 2 + 18,
+                        cx, cy, bw, bh = button_geometry(c, N, w, h, self.dimension)
+                        frame.canvas.create_rectangle(cx-bw/2, cy-bh/2, cx+bw/2, cy+bh/2,
                                                       fill=color_changer(color[0], color[1], color[2]))
+                        if self.choice_mouse_click and self.dimension == 3:
+                            frame.canvas.create_text(cx, cy + bh/2 + 12,
+                                                     text=f'({cx:.0f}, {cy:.0f}, {button_depth(c, N):.0f})',
+                                                     font=('Arial', 10))
             elif sti_type=='text':
                 if N==1:
                     frame.canvas.create_rectangle(w/2-80,h/2-18,w/2+80,h/2+18,fill='white',outline='white')
@@ -56,9 +74,19 @@ if 'Press_button' in task_info_dic.values():
                 else:
                     for c in range(N):
                         text=text_list[c]
-                        frame.canvas.create_rectangle(w/(N+1)*c+30,h/2-18,w/(N+1)*c+150,h/2+18,fill='white')
-                        frame.canvas.create_text(w/(N+1)*c+90, h/2,anchor='center',text=text,font=("Times New Roman",15,"bold"))
+                        cx, cy, bw, bh = button_geometry(c, N, w, h, self.dimension)
+                        frame.canvas.create_rectangle(cx-bw/2, cy-bh/2, cx+bw/2, cy+bh/2,fill='white')
+                        frame.canvas.create_text(cx, cy,anchor='center',text=text,font=("Times New Roman",15,"bold"))
+                        if self.choice_mouse_click and self.dimension == 3:
+                            frame.canvas.create_text(cx, cy + bh/2 + 12,
+                                                     text=f'({cx:.0f}, {cy:.0f}, {button_depth(c, N):.0f})',
+                                                     font=('Arial', 10))
         
+            # Draw the initial targets before gray overlays are applied.
+            # A one-time refresh is intentional for macOS Tk rendering.
+            self.root.update_idletasks()
+            self.root.update()
+
         def add_button(self, i):
             
             if self.sti_type=='color':
@@ -73,8 +101,9 @@ if 'Press_button' in task_info_dic.values():
                 else:
                     for item in range(self.N):
                         if i[1]['color'] == color_list[item]:
-                            self.frame.canvas.create_rectangle(self.w / (self.N + 1) * item + 30, self.h / 2 - 18,
-                                                               self.w / (self.N + 1) * item + 150, self.h / 2 + 18, fill='gray',
+                            cx, cy, bw, bh = button_geometry(item, self.N, self.w, self.h, self.dimension)
+                            self.frame.canvas.create_rectangle(cx-bw/2, cy-bh/2,
+                                                               cx+bw/2, cy+bh/2, fill='gray',
                                                                outline='gray', tag='button_rec')
                             self.frame.canvas.update()
                             break
@@ -97,48 +126,59 @@ if 'Press_button' in task_info_dic.values():
                 else:
                     for item in range(self.N):
                         if i[1]['text']==text_list[item]:
-                            self.frame.canvas.create_rectangle(self.w/(self.N+1)*item+30,self.h/2-18,self.w/(self.N+1)*item+150,self.h/2+18,fill='gray',outline='gray',tag='button_rec')
+                            cx, cy, bw, bh = button_geometry(item, self.N, self.w, self.h, self.dimension)
+                            self.frame.canvas.create_rectangle(cx-bw/2, cy-bh/2, cx+bw/2, cy+bh/2,fill='gray',outline='gray',tag='button_rec')
                             self.frame.canvas.update()
                             break
                     time.sleep(0.4)
                     self.frame.canvas.delete('button_rec')
                     self.frame.canvas.update()
                         
-if'Count' in task_info_dic.values():
+if 'Count' in task_info_dic.values():
     class Reaction_count:
-    
+        """Readable Count display with separate header, trial and number rows."""
         root = tk.Tk()
-        w=root.winfo_screenwidth()/2
-        h=root.winfo_screenheight()/5
-        frame=myCanvas(root,w,h)
-        frame.canvas.pack(fill="both",expand=True)
-        root.title('Reaction')
-        root.geometry('%dx%d+%d+%d'%(w,h,0,root.winfo_screenheight()/1.7))           
-        
-        frame.canvas.create_text(w/2,h/4,text='Current count: ',font=("Times New Roman",18))
-    
-        frame.canvas.create_text(w/6*5,20,text='trial #: ',font=("Times New Roman",15))
-    
-        def show(self,start_num,end_num):
-            self.frame.canvas.create_text(100,20,text='Count from %s to %s'%(start_num,end_num),font=("Times New Roman",18,"bold"),tag='count')
-    
-        def count_num (self,current):
-            
-            self.frame.canvas.create_text(self.w/2,self.h/2,text=str(current),font=("Times New Roman",18),fill='red',tag='current_count')
-            self.frame.canvas.update()
+        w = max(580, int(root.winfo_screenwidth() * 0.45))
+        h = 260
+        frame = myCanvas(root, w, h)
+        frame.canvas.pack(fill='both', expand=True)
+        root.title('Count')
+        root.geometry('%dx%d+%d+%d' % (w, h, 0, int(root.winfo_screenheight() / 1.7)))
+        frame.canvas.create_text(w/2, 105, text='Current count',
+                                 font=('Arial', 17), tags='count_label')
+        root.update_idletasks()
+        root.update()
+
+        def show(self, start_num, end_num):
+            canvas = self.frame.canvas
+            canvas.delete('count')
+            canvas.create_text(self.w/2, 44,
+                               text=f'Count from {start_num} to {end_num}',
+                               font=('Arial', 19, 'bold'), anchor='center', tags='count')
+            canvas.update_idletasks()
+
+        def count_num(self, current):
+            canvas = self.frame.canvas
+            canvas.delete('current_count')
+            canvas.create_text(self.w/2, 163, text=str(current),
+                               font=('Arial', 34, 'bold'), fill='red',
+                               anchor='center', tags='current_count')
+            canvas.update()
             time.sleep(0.1)
-            self.frame.canvas.delete('current_count')
-        
-        def trial(self,trial):
-            self.frame.canvas.create_text(self.w/8*7,20,text=trial,font=("Times New Roman",15),tag='trial')
-            self.frame.canvas.update()
-            #time.sleep(0.1)
-            #self.frame.canvas.delete('trial')
-            
+            canvas.delete('current_count')
+
+        def trial(self, trial):
+            canvas = self.frame.canvas
+            canvas.delete('trial')
+            canvas.create_text(self.w/2, 78, text=f'Trial # {trial}',
+                               font=('Arial', 14), anchor='center', tags='trial')
+            canvas.update()
+
         def delete(self):
             self.frame.canvas.delete('trial')
-            self.frame.canvas.delete('count') 
-            
+            self.frame.canvas.delete('count')
+            self.frame.canvas.delete('current_count')
+
 if 'Cal_single_digit_num' in task_info_dic.values():
     class Reaction_calsingledig:
         root = tk.Tk()
@@ -146,6 +186,7 @@ if 'Cal_single_digit_num' in task_info_dic.values():
         h=root.winfo_screenheight()/5
         frame=myCanvas(root,w,h)
         frame.canvas.pack(fill="both",expand=True)
+        root.update_idletasks()
         root.title('Reaction')
         root.geometry('%dx%d+%d+%d'%(w,h,0,root.winfo_screenheight()/1.7))    
         
@@ -160,18 +201,22 @@ if 'Cal_single_digit_num' in task_info_dic.values():
         else:
             text='/'
         frame.canvas.create_text(w/2,h/2,text=text,font=("Times New Roman",18,"bold"))
+        root.update_idletasks()
+        root.update()
             #frame.canvas.create_text(w/2,h/4,text='Current count: ',font=("Times New Roman",18))  
         
         def first_num(self,first_num):
+            self.frame.canvas.delete('first_num')
             self.frame.canvas.create_text(self.w/2-20,self.h/2,text=str(first_num),font=("Times New Roman",18),fill='red',tag='first_num')
             self.frame.canvas.update()
         
         def second_num(self,second_num):
+            self.frame.canvas.delete('second_num')
             self.frame.canvas.create_text(self.w/2+20,self.h/2,text=str(second_num),font=("Times New Roman",18),fill='blue',tag='second_num')
             self.frame.canvas.update()
             
         def result(self,i):
-            
+            self.frame.canvas.delete('result')
             self.frame.canvas.create_text(self.w/2+60,self.h/2,text=' = '+str(i),font=("Times New Roman",18),tag='result')
             self.frame.canvas.update()
             time.sleep(0.2)
@@ -191,16 +236,25 @@ if 'Look_at' in task_info_dic.values() or 'Look_for' in task_info_dic.values():
         h=root.winfo_screenheight()/3
         frame=myCanvas(root,w,h)
         frame.canvas.pack(fill="both",expand=True)
+        root.update_idletasks()
         root.title('Reaction')
         root.geometry('%dx%d+%d+%d'%(w,h,0,root.winfo_screenheight()/1.7))  
-        max_value = max(max(t[0]) for t in look_for_ls if isinstance(t[0], tuple))
-        rows, cols = max_value+1,max_value+1
-        cell_width, cell_height = h // cols, h // rows
-    
-        
-        
+        # Normalized 0-100 visual-field coordinates. Items need not lie on a grid.
+        rows, cols = 100, 100
+        cell_width, cell_height = 1, 1
+        _visual_margin = 42
+
+        def _visual_point(self, row, column):
+            # Legacy Look_at inputs use (row, column); x is the column.
+            width = max(100, float(self.w) - 2 * self._visual_margin)
+            height = max(100, float(self.h) - 2 * self._visual_margin)
+            x = self._visual_margin + float(column) / 100.0 * width
+            y = self._visual_margin + float(row) / 100.0 * height
+            return x, y
+
         def judge_result(self,judge,result):
-            
+            # A new judgment replaces any prior judgment label.
+            self.frame.canvas.delete('ji_text')
             if result=='T':
                 if judge=='color':
                     self.frame.canvas.create_text(self.cell_width*self.rows+80,self.h/2,anchor='center',text='identical color',font=("Times New Roman",15,"bold"),tag='ji_text')
@@ -217,57 +271,83 @@ if 'Look_at' in task_info_dic.values() or 'Look_for' in task_info_dic.values():
             self.frame.canvas.delete('ji_text')
             self.frame.canvas.update()
             
-        def look_at(self):
-            self.draw_table(self.rows, self.cols, self.cell_width, self.cell_height)  
-            self.draw_circles(look_for_ls, self.cell_width, self.cell_height)
-        
-        def show_eye(self,row,column,radius=15):
-            # Draw the circle
-            x_center = (column + 0.5) * self.cell_width
-            y_center = (row + 0.5) * self.cell_height
-            self.frame.canvas.create_oval(x_center-radius, y_center-radius, x_center+radius, y_center+radius,outline='red',width=2,fil=None,tag='eye')
-            self.frame.canvas.update()      
-        
-        def delete(self):
-            self.canvas.delete('eye')
-                
-        def draw_table(self, rows, cols, cell_width, cell_height):
-            # Draw table grid
-            for i in range(rows + 1):
-                self.frame.canvas.create_line(0, i * cell_height, cols * cell_width, i * cell_height)
-            for i in range(cols + 1):
-                self.frame.canvas.create_line(i * cell_width, 0, i * cell_width, rows * cell_height)
-            
-            # Draw row numbers in the first column
-            for i in range(1, rows):
-                self.frame.canvas.create_text(self.cell_width / 2, (i + 0.5) * cell_height, 
-                                              text=str(i), font=('Arial', 10))
-    
-            # Draw column numbers in the first row
-            for i in range(1, cols):
-                self.frame.canvas.create_text((i + 0.5) * cell_width, self.cell_height / 2, 
-                                              text=str(i), font=('Arial', 10))
-    
-            # Label for the first cell
-            self.frame.canvas.create_text(self.cell_width / 2, self.cell_height / 2,
-                                          text='Row/Column', font=('Arial', 10))
+        def look_at(self, standalone=False):
+            """Initialize the Look At gaze display or the Look For search field."""
+            self.frame.canvas.delete('visual_field')
+            self.frame.canvas.delete('eye')
+            self.draw_table(self.rows, self.cols, self.cell_width, self.cell_height)
+            if standalone:
+                from eye_movement_model import get_eye_position
+                self.show_look_at(get_eye_position(), None)
+            else:
+                self.draw_circles(look_for_ls, self.cell_width, self.cell_height)
+            self.root.update_idletasks()
+            self.root.update()
 
-        def draw_circles(self, look_for_ls, cell_width, cell_height):
-            radius = 10
-            for (row, col), text, color in look_for_ls:
-                # Calculate center of the cell
-                x_center = (col + 0.5) * cell_width
-                y_center = (row + 0.5) * cell_height
-                
-                # Draw circle
-                self.frame.canvas.create_oval(x_center - radius, y_center - radius, 
-                                              x_center + radius, y_center + radius, 
-                                              fill=color)
-                # Draw text
-                self.frame.canvas.create_text(x_center, y_center, text=text, fill="black")
-                self.frame.canvas.update()
-                
-                
+        def show_look_at(self, fixation, target):
+            """Display one blue fixation and one red target, never Look For items.
+
+            Positions are (x, y) normalized to 0..100, matching the Eye Server.
+            """
+            self.frame.canvas.delete('look_at_gaze')
+            self.frame.canvas.delete('eye')
+            if fixation is not None:
+                x, y = self._visual_point(fixation[1], fixation[0])
+                self.frame.canvas.create_oval(x-8, y-8, x+8, y+8,
+                    fill='#2563EB', outline='#1D4ED8', tags='look_at_gaze')
+                self.frame.canvas.create_text(x, y+21, text='Current fixation',
+                    fill='#1D4ED8', tags='look_at_gaze')
+            if target is not None:
+                x, y = self._visual_point(target[1], target[0])
+                self.frame.canvas.create_oval(x-9, y-9, x+9, y+9,
+                    fill='#DC2626', outline='#991B1B', tags='look_at_gaze')
+                self.frame.canvas.create_text(x, y-22, text='Look At target',
+                    fill='#991B1B', tags='look_at_gaze')
+            self.root.update_idletasks()
+            self.root.update()
+
+        def show_eye(self, row, column, radius=15):
+            x, y = self._visual_point(row, column)
+            self.frame.canvas.delete('eye')
+            self.frame.canvas.create_oval(x-radius, y-radius, x+radius, y+radius,
+                                          outline='red', width=2, fill='', tag='eye')
+            self.root.update_idletasks()
+            self.root.update()
+
+        def delete(self):
+            self.frame.canvas.delete('eye')
+
+        def draw_table(self, rows, cols, cell_width, cell_height):
+            """Use a continuous visual field rather than a fixed nine-cell grid."""
+            margin = self._visual_margin
+            width, height = float(self.w), float(self.h)
+            self.frame.canvas.create_rectangle(margin, margin, width-margin,
+                                                height-margin, outline='#9CA3AF',
+                                                width=2, tags='visual_field')
+            for fraction in (0.25, 0.5, 0.75):
+                x = margin + fraction * (width - 2*margin)
+                y = margin + fraction * (height - 2*margin)
+                self.frame.canvas.create_line(x, margin, x, height-margin,
+                    fill='#E5E7EB', tags='visual_field')
+                self.frame.canvas.create_line(margin, y, width-margin, y,
+                    fill='#E5E7EB', tags='visual_field')
+            self.frame.canvas.create_text(width/2, margin/2,
+                text='Visual field (X: 0–100, Y: 0–100)',
+                font=('Arial', 12), tags='visual_field')
+
+        def draw_circles(self, items, cell_width, cell_height):
+            """Render configured targets at their actual normalized coordinates."""
+            for (row, col), label, color in items:
+                x, y = self._visual_point(row, col)
+                radius = 14
+                self.frame.canvas.create_oval(x-radius, y-radius, x+radius, y+radius,
+                                               fill=color, outline='#555555',
+                                               tags='visual_field')
+                self.frame.canvas.create_text(x, y, text=str(label),
+                                               fill='black', font=('Arial', 11, 'bold'),
+                                               tags='visual_field')
+
+
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D

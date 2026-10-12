@@ -1,0 +1,35 @@
+{
+  "coordinate_system": "millimeters",
+  "position_mode": "fixed",
+  "screen": {
+    "width_mm": 500,
+    "height_mm": 300,
+    "viewing_distance_mm": 600
+  },
+  "targets": [
+    {
+      "label": "a",
+      "color": "red",
+      "x_mm": 100,
+      "y_mm": 45
+    },
+    {
+      "label": "b",
+      "color": "green",
+      "x_mm": 375,
+      "y_mm": 105
+    },
+    {
+      "label": "c",
+      "color": "blue",
+      "x_mm": 150,
+      "y_mm": 195
+    },
+    {
+      "label": "d",
+      "color": "yellow",
+      "x_mm": 400,
+      "y_mm": 240
+    }
+  ]
+}

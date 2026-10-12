@@ -32,6 +32,7 @@ class GUI_User_Main:
         path='backup/'   
         reset_session_folder(path)
         self.current_project_dir = None
+        self.run_accepted = False
         set_active_project_dir(None)
         
         self.root = tk.Tk()    
@@ -116,9 +117,169 @@ class GUI_User_Main:
         self.parameter.place(x=270,y=310,width=450,height=50)
 
         #Start button
-        self.Button_start=tk.Button(self.root,text='Start',font=('',20),command=self.root.destroy)
+        self.Button_start=tk.Button(self.root,text='Start',font=('',20),command=self.start_simulation)
         self.Button_start.place(x=450,y=400,width=100,height=40)
         
+    def _validate_tasks(self, tasks):
+        """Check task definitions without changing the saved configuration."""
+        errors = []
+        task_ids = []
+        for col in range(1, 6):
+            task_id = str(tasks.get((1, col), '')).strip()
+            pairs = [(str(tasks.get((row, 2 * col - 1), '')).strip(),
+                      str(tasks.get((row, 2 * col), '')).strip()) for row in range(2, 18)]
+            if not task_id:
+                if any(be or order for be, order in pairs):
+                    errors.append(f'Column {col}: select a task number.')
+                continue
+            if task_id in task_ids:
+                errors.append(f'Task {task_id}: task number is duplicated.')
+            task_ids.append(task_id)
+            orders = []
+            for row, (be, order) in enumerate(pairs, start=2):
+                if bool(be) != bool(order):
+                    errors.append(f'Task {task_id}, row {row}: select both BE and order.')
+                if be and order:
+                    try:
+                        orders.append(int(order))
+                    except ValueError:
+                        errors.append(f'Task {task_id}, row {row}: order must be an integer.')
+            if not orders:
+                errors.append(f'Task {task_id}: add at least one BE.')
+            elif len(set(orders)) != len(orders) or sorted(orders) != list(range(1, len(orders) + 1)):
+                errors.append(f'Task {task_id}: BE orders must be unique and consecutive from 1.')
+        if not task_ids:
+            errors.append('Define at least one task.')
+        return errors
+
+    def _validate_be_parameters(self, tasks):
+        """Check the required basic-BE parameters for each configured task."""
+        from gui_basic_BE import _load_saved_dict
+        requirements = {
+            'Choice': ('N.txt', 'Choice number'),
+            'Count': ('countstimuli.txt', 'Count length'),
+            'Mouse_click': ('mouse_click_dimension.txt', 'Mouse-click dimension'),
+            'Judge_identity': ('judgei_target_dic.txt', 'Judge-identity target'),
+            'Cal_single_digit_num': ('arith.txt', 'Calculation operation'),
+        }
+        missing = []
+        for col in range(1, 6):
+            task_id = str(tasks.get((1, col), '')).strip()
+            if not task_id:
+                continue
+            for row in range(2, 18):
+                be = tasks.get((row, 2 * col - 1), '')
+                if be not in requirements:
+                    continue
+                filename, label = requirements[be]
+                values = _load_saved_dict(os.path.join(path, filename))
+                if be == 'Count':
+                    value = values.get((1, 4))
+                    valid = type(value) is int and 1 <= value <= 10
+                elif be == 'Choice':
+                    value = values.get(int(task_id))
+                    valid = type(value) is int and 1 <= value <= 6
+                elif be == 'Mouse_click':
+                    valid = str(values.get(int(task_id), '')) in ('1', '2', '3')
+                elif be == 'Judge_identity':
+                    value = values.get(task_id, values.get(int(task_id)))
+                    valid = isinstance(value, dict) and bool(value.get('identity')) and bool(value.get('value'))
+                else:
+                    valid = bool(values) and any(v not in ('', None) for v in values.values())
+                if not valid:
+                    item = f'Task {task_id}: {be} — {label}'
+                    if item not in missing:
+                        missing.append(item)
+        return missing
+
+    def _validate_entity_parameters(self, tasks):
+        """Require valid entity rows for tasks that use See or Hear."""
+        from gui_basic_BE import _load_saved_dict
+        errors = []
+        for col in range(1, 6):
+            task_id = str(tasks.get((1, col), '')).strip()
+            if not task_id:
+                continue
+            for be in ('See', 'Hear'):
+                if not any(tasks.get((row, 2 * col - 1)) == be for row in range(2, 18)):
+                    continue
+                data = _load_saved_dict(os.path.join(path, f'entity_dic_{be.lower()}.txt'))
+                configured = False
+                for row in range(2, 6):
+                    kind = data.get((row, 1, task_id), '')
+                    fields = [str(data.get((row, c, task_id), '')).strip() for c in (2, 3, 4)]
+                    if kind or any(fields):
+                        configured = True
+                        if kind == 'Color':
+                            text_only = [name for name in ('Count', 'Cal_single_digit_num')
+                                         if any(tasks.get((r, 2 * col - 1)) == name for r in range(2, 18))]
+                            for name in text_only:
+                                errors.append(f'Task {task_id}: {name} does not support Color entities. Select Text.')
+                        if kind not in ('Color', 'Text') or not all(v.isdigit() for v in fields):
+                            errors.append(f'Task {task_id}, {be}: complete entity type, arrival, IAT and occurrences (non-negative integers).')
+                if not configured:
+                    errors.append(f'Task {task_id}, {be}: configure at least one entity.')
+        return errors
+
+    def start_simulation(self):
+        """Run a valid saved or edited project, offering Save / Save As / Don't Save."""
+        task_file = os.path.join(path, 'task_info_dic.txt')
+        if not has_saved_input(task_file):
+            messagebox.showwarning('Step 1: Define Task', 'Define and save at least one task.', parent=self.root)
+            return
+        try:
+            tasks = save(1).load_var(task_file)
+            if not isinstance(tasks, dict):
+                raise ValueError('Task data must be a dictionary')
+        except Exception:
+            messagebox.showerror('Step 1: Define Task', 'Unable to read the task definition.', parent=self.root)
+            return
+        errors = self._validate_tasks(tasks)
+        if errors:
+            messagebox.showwarning('Step 1: Define Task', '\n'.join(errors), parent=self.root)
+            return
+        errors = self._validate_be_parameters(tasks) + self._validate_entity_parameters(tasks)
+        if errors:
+            messagebox.showwarning('Step 2: Entity and BE Parameters', '\n'.join(errors), parent=self.root)
+            return
+        try:
+            simtime = save(1).load_var(os.path.join(path, 'simtime.txt'))
+            animation = save(1).load_var(os.path.join(path, 'anim.txt'))
+            if type(simtime) is not int or simtime <= 0 or animation not in (0, 1):
+                raise ValueError
+        except Exception:
+            messagebox.showwarning('Step 3: Simulation Parameters',
+                                   'Enter and save a positive simulation time and animation choice.', parent=self.root)
+            return
+
+        dialog = tk.Toplevel(self.root)
+        dialog.title('Save before simulation?')
+        dialog.transient(self.root)
+        dialog.grab_set()
+        tk.Label(dialog, text='Would you like to save the project before running?',
+                 font=('', 13), padx=22, pady=20).pack()
+        buttons = tk.Frame(dialog)
+        buttons.pack(padx=16, pady=(0, 18))
+        choice = {'value': 'cancel'}
+        def choose(value):
+            choice['value'] = value
+            dialog.destroy()
+        for label, value in [('Save', 'save'), ('Save As', 'save_as'),
+                             ("Don't Save", 'skip'), ('Cancel', 'cancel')]:
+            tk.Button(buttons, text=label, width=12,
+                      command=lambda v=value: choose(v)).pack(side='left', padx=4)
+        dialog.protocol('WM_DELETE_WINDOW', lambda: choose('cancel'))
+        self.root.wait_window(dialog)
+        action = choice['value']
+        if action == 'cancel':
+            return
+        if action in ('save', 'save_as'):
+            completed = self.saveCurrentFile(show_message=False) if action == 'save' else self.saveFile(show_message=False)
+            if not completed:
+                return
+        self.run_accepted = True
+        self.root.destroy()
+
     def task_event(self):
         GUI_task_def_step1().root.mainloop()
         
@@ -135,16 +296,17 @@ class GUI_User_Main:
         else:
             self.project_label.config(text='Current project: unsaved session')
 
-    def saveCurrentFile(self):
+    def saveCurrentFile(self, show_message=True):
         if not self.current_project_dir:
-            self.saveFile()
-            return
+            return self.saveFile(show_message=show_message)
         save(0).copy_search_file('backup/', self.current_project_dir)
         set_active_project_dir(self.current_project_dir)
         self._update_project_label()
-        messagebox.showinfo('Save', f'Configuration saved to:\n{self.current_project_dir}')
+        if show_message:
+            messagebox.showinfo('Save', f'Configuration saved to:\n{self.current_project_dir}')
+        return True
 
-    def saveFile(self):
+    def saveFile(self, show_message=True):
         parent_dir = filedialog.askdirectory(title='Select a parent folder to save the current configuration')
         if not parent_dir:
             return
@@ -174,7 +336,9 @@ class GUI_User_Main:
         self.current_project_dir = target_dir
         set_active_project_dir(target_dir)
         self._update_project_label()
-        messagebox.showinfo('Save As', f'Configuration saved to:\n{target_dir}')
+        if show_message:
+            messagebox.showinfo('Save As', f'Configuration saved to:\n{target_dir}')
+        return True
     
     def readFile(self):
         source_dir = filedialog.askdirectory(title='Select a saved configuration folder to open')
@@ -188,8 +352,9 @@ class GUI_User_Main:
         set_active_project_dir(source_dir)
         global saved
         saved=0
-        global path
+        global path, task_info_dic
         path='backup/'
+        task_info_dic = save(1).load_var(os.path.join(path, 'task_info_dic.txt'))
         self._update_project_label()
         messagebox.showinfo('Open', f'Configuration loaded from:\n{source_dir}\n\nYou can continue editing and click Save to overwrite this project folder.')
 
@@ -208,7 +373,10 @@ class GUI_task_def_step1:
         y=(sh-wh)/2  #window coordinate
         self.root.geometry('%dx%d+%d+%d'%(ww,wh,x,y))
         self.interface()
-        
+        # Closing the task editor through the window close control must not
+        # silently discard edits. Validate and save just like the Save button.
+        self.root.protocol('WM_DELETE_WINDOW', self.save_event)
+
     def interface(self):
         for r in range(100):
             self.root.rowconfigure(r,weight=1)
@@ -315,7 +483,7 @@ class GUI_task_def_step1:
             else:                    
                 for c in range(1,11):
                     task_info_dic[(r,c)]=self.combobox[(r,c)].get()
-        task_info_dic_f=save(saved).save_var(task_info_dic,path+'/task_info_dic.txt')
+        # Changes are committed only after Step 1 validation on Save.
 
     
     def save_event(self):
@@ -328,6 +496,10 @@ class GUI_task_def_step1:
             else:                    
                 for c in range(1,11):
                     task_info_dic[(r,c)]=self.combobox[(r,c)].get()
+        errors = GUI_User_Main._validate_tasks(self, task_info_dic)
+        if errors:
+            messagebox.showwarning('Step 1: Define Task', '\n'.join(errors), parent=self.root)
+            return
         task_info_dic_f=save(saved).save_var(task_info_dic,path+'/task_info_dic.txt')
         self.root.destroy()
         
@@ -351,6 +523,7 @@ class GUI_simulation_parameter:
         self.root.geometry('%dx%d+%d+%d'%(ww,wh,x,y))
         self.v=tk.IntVar()
         self.interface()
+        self.root.protocol('WM_DELETE_WINDOW', self.event)
         
     def interface(self):
         
@@ -593,7 +766,42 @@ class GUI_entity_parameter:
         Button_ok.place(x=400, y=250, height=40)
 
     def ok_event(self):
+        try:
+            tasks = save(1).load_var(os.path.join(path, 'task_info_dic.txt'))
+            errors = GUI_User_Main._validate_be_parameters(self, tasks)
+            errors += GUI_User_Main._validate_entity_parameters(self, tasks)
+        except Exception:
+            errors = ['Unable to read the saved task or BE settings.']
+        if errors:
+            messagebox.showwarning('Step 2: Entity and BE Parameters', '\n'.join(errors), parent=self.root)
+            return
         self.root.destroy()
+
+    def _text_only_bes(self, task_no):
+        """Return BEs in this task that require Text entities."""
+        from gui_basic_BE import _load_saved_dict
+        tasks = _load_saved_dict(os.path.join(path, 'task_info_dic.txt'))
+        names = ('Count', 'Cal_single_digit_num')
+        return [name for name in names if any(
+            str(tasks.get((1, col), '')).strip() == str(task_no)
+            and any(tasks.get((row, 2 * col - 1)) == name for row in range(2, 18))
+            for col in range(1, 6)
+        )]
+
+    def _reject_color_for_text_only_be(self, row):
+        """Warn immediately and clear Color when the task requires Text."""
+        widget = self.entity[(row, 1, self.task_no)]
+        text_only = self._text_only_bes(self.task_no)
+        if widget.get() == 'Color' and text_only:
+            widget.set('')
+            name = ' and '.join(text_only)
+            messagebox.showwarning(
+                'Text entity required',
+                f'{name} does not support Color entities. Please select Text.',
+                parent=widget.winfo_toplevel(),
+            )
+            return True
+        return False
 
     def event(self, task_no, step, be, label_text=None):
         self.task_no = task_no
@@ -633,7 +841,7 @@ class GUI_entity_parameter:
                 values=value_entity,
                 font=('bold', 10)
             )
-            self.entity[(r, 1, self.task_no)].bind('<<ComboboxSelected>>', lambda *args, lt=label_text: self.pick(lt))
+            self.entity[(r, 1, self.task_no)].bind('<<ComboboxSelected>>', lambda *args, row=r, lt=label_text: (None if self._reject_color_for_text_only_be(row) else self.pick(lt)))
             self.entity[(r, 1, self.task_no)].grid(row=r, column=1)
 
             saved_value = saved_entity_data.get((r, 1, self.task_no), '')
@@ -656,7 +864,7 @@ class GUI_entity_parameter:
                 new_window,
                 text=f'Next: Define {be} Parameter',
                 font=16,
-                command=lambda t=self.task_no, lt=label_text: [self.entry_event(new_window, lt), new_window.destroy(), self.basic_2_methods[be](t)]
+                command=lambda t=self.task_no, lt=label_text: self._save_then_next(new_window, lt, self.basic_2_methods[be], t)
             )
             button_next.grid(row=6, rowspan=3, column=3, columnspan=2, pady=20, ipady=3)
 
@@ -669,6 +877,10 @@ class GUI_entity_parameter:
         y = max((sh - req_h) // 2, 0)
         new_window.geometry(f"{req_w}x{req_h}+{x}+{y}")
         new_window.minsize(req_w, req_h)
+
+    def _save_then_next(self, window, label_text, method, task_no):
+        if self.entry_event(window, label_text):
+            method(task_no)
 
     def pick(self, label_text=None):
         global entity_dic_see, entity_dic_hear
@@ -692,8 +904,13 @@ class GUI_entity_parameter:
         label_text = self._resolve_entity_label(self.task_no, label_text)
         try:
             for r in range(2, 6):
-                row_filled = any(self.entity[(r, c, self.task_no)].get().strip() for c in range(2, 5))
+                row_filled = (bool(self.entity[(r, 1, self.task_no)].get().strip()) or
+                              any(self.entity[(r, c, self.task_no)].get().strip() for c in range(2, 5)))
                 if row_filled:
+                    if self._reject_color_for_text_only_be(r):
+                        return False
+                    if not self.entity[(r, 1, self.task_no)].get().strip():
+                        raise ValueError(f"Please select an entity type in row {r}.")
                     for c in range(2, 5):
                         val_str = self.entity[(r, c, self.task_no)].get().strip()
                         if val_str == "":
@@ -719,9 +936,11 @@ class GUI_entity_parameter:
             self._save_entity_dict(label_text, current_entity_dic)
             save(saved).save_var(entity_dic, path + '/entity_dic.txt')
             window.destroy()
+            return True
 
         except ValueError as e:
             self.show_error_message(window, str(e))
+            return False
 
     def show_error_message(self, parent_window, message):
         error_window = tk.Toplevel(parent_window)
@@ -784,6 +1003,8 @@ def _initialize_runtime_gui_state():
 def run():
     user_interface = GUI_User_Main()
     user_interface.root.mainloop()
+    if not user_interface.run_accepted:
+        return False
     global Tasklist_dic,anim,SIMTIME,task_info_dic
     Task_dic ={}
     tbd_list=save(saved).load_var(path+'/tbd_list.txt')
@@ -791,6 +1012,11 @@ def run():
     SIMTIME=save(saved).load_var(path+'/simtime.txt')
     task_info_dic=save(saved).load_var(path+'/task_info_dic.txt')
     _initialize_runtime_gui_state()
+    global entity_dic, entity_dic_see, entity_dic_hear
+    from gui_basic_BE import _load_saved_dict
+    entity_dic = _load_saved_dict(os.path.join(path, 'entity_dic.txt'))
+    entity_dic_see = _load_saved_dict(os.path.join(path, 'entity_dic_see.txt'))
+    entity_dic_hear = _load_saved_dict(os.path.join(path, 'entity_dic_hear.txt'))
     #N=save(saved).load_var(path+'/N.txt')
     
     Tasklist_dic={}
@@ -812,3 +1038,5 @@ def run():
                     if t[1]==item+1:
                         Tasklist_dic[k][item].append(t[0])
     
+
+    return True

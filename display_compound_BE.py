@@ -125,7 +125,7 @@ if 'Tracking_1D' in task_info_dic.values():
             self.current_y = location_y 
     
             # Update the cursor's position on the plot
-            self.point.set_data(self.current_x, self.current_y)
+            self.point.set_data([self.current_x], [self.current_y])
             self.canvas.draw()
             
             self.cursor_x = self.current_x
@@ -164,7 +164,7 @@ if 'Tracking_1D' in task_info_dic.values():
                     self.target_x = new_x
                 
                 # Update the target point's position on the plot
-                self.target_point.set_data(self.target_x, self.target_y)
+                self.target_point.set_data([self.target_x], [self.target_y])
                 self.canvas.draw()
                 
                 # Convert the target's (x, y) in data coordinates to pixel coordinates
@@ -316,14 +316,14 @@ if 'Tracking_1D_1W' in task_info_dic.values():
                 self.adjust_x_range()
                
                 # Update the point's position on the plot
-                self.point.set_data(self.current_x, self.current_y)
+                self.point.set_data([self.current_x], [self.current_y])
                 self.canvas.draw()  # Refresh the plot
             
                 self.cursor_x = self.current_x
                 
                 # Convert the point's (x, y) in data coordinates to pixel coordinates
                 self.pixel_coords = self.ax.transData.transform((self.current_x, self.current_y))
-                self.mm_coords_cursor = (pixels_to_mm(self.pixel_coords_cursor[0]),pixels_to_mm(self.pixel_coords_cursor[1]))
+                self.mm_coords_cursor = (pixels_to_mm(self.pixel_coords[0]),pixels_to_mm(self.pixel_coords[1]))
                 #print(f"Actual pixel coordinates of the point: {pixel_coords}")
             
                 # Update the label with the pixel coordinates
@@ -344,7 +344,7 @@ if 'Tracking_1D_1W' in task_info_dic.values():
                 self.adjust_x_range()
                 
                 # Update the target point's position on the plot
-                self.target_point.set_data(self.target_x, self.target_y)
+                self.target_point.set_data([self.target_x], [self.target_y])
                 self.canvas.draw()
                 
                 # Convert the target's (x, y) in data coordinates to pixel coordinates
@@ -458,7 +458,7 @@ if 'Tracking_1D_Random' in task_info_dic.values():
             self.current_y = location_y 
     
             # Update the cursor's position on the plot
-            self.point.set_data(self.current_x, self.current_y)
+            self.point.set_data([self.current_x], [self.current_y])
             self.canvas.draw()
             
             self.cursor_x = self.current_x
@@ -494,7 +494,7 @@ if 'Tracking_1D_Random' in task_info_dic.values():
                 else:
                     self.target_x = new_x
                 # Update the target point's position on the plot
-                self.target_point.set_data(self.target_x, self.target_y)
+                self.target_point.set_data([self.target_x], [self.target_y])
                 self.canvas.draw()
                 
                 # Convert the target's (x, y) in data coordinates to pixel coordinates
@@ -614,7 +614,7 @@ if 'Tracking_2D' in task_info_dic.values():
             
     
             # Update the cursor's position on the plot
-            self.point.set_data(self.current_x, self.current_y)
+            self.point.set_data([self.current_x], [self.current_y])
             self.canvas.draw()
             
             self.cursor_x = self.current_x
@@ -655,7 +655,7 @@ if 'Tracking_2D' in task_info_dic.values():
                 self.target_y = tracking2D_curve(self.curve_type, self.target_x)
         
                 # Update the target point's position on the plot
-                self.target_point.set_data(self.target_x, self.target_y)
+                self.target_point.set_data([self.target_x], [self.target_y])
                 self.canvas.draw()
         
                 # Convert the target's (x, y) in data coordinates to pixel coordinates
@@ -769,7 +769,7 @@ if 'Tracking_2D_Random' in task_info_dic.values():
             
     
             # Update the cursor's position on the plot
-            self.point.set_data(self.current_x, self.current_y)
+            self.point.set_data([self.current_x], [self.current_y])
             self.canvas.draw()
             
             self.cursor_x = self.current_x
@@ -819,7 +819,7 @@ if 'Tracking_2D_Random' in task_info_dic.values():
                         self.target_y = new_y
         
                 # Update the target point's position on the plot
-                self.target_point.set_data(self.target_x, self.target_y)
+                self.target_point.set_data([self.target_x], [self.target_y])
                 self.canvas.draw()
         
                 # Convert the target's (x, y) in data coordinates to pixel coordinates
@@ -928,7 +928,7 @@ if 'Tracking_2D_1W' in task_info_dic.values():
 
             self.adjust_x_range()
 
-            self.point.set_data(self.current_x, self.current_y)
+            self.point.set_data([self.current_x], [self.current_y])
             self.canvas.draw()
 
             self.cursor_x = self.current_x
@@ -951,7 +951,7 @@ if 'Tracking_2D_1W' in task_info_dic.values():
                 self.target_y = tracking2D_curve(self.curve_type, self.target_x)
                 self.adjust_x_range()
 
-                self.target_point.set_data(self.target_x, self.target_y)
+                self.target_point.set_data([self.target_x], [self.target_y])
                 self.canvas.draw()
 
                 self.pixel_coords_target = self.ax.transData.transform((self.target_x, self.target_y))
@@ -1094,7 +1094,7 @@ if 'Tracing_1D_Bounded' in task_info_dic.values():
             self.current_y = 0
             
             # Update the point's position on the plot
-            self.point.set_data(self.current_x, self.current_y)
+            self.point.set_data([self.current_x], [self.current_y])
             self.canvas.draw()
         
             # Convert the point's (x, y) in data coordinates to pixel coordinates
@@ -1244,7 +1244,7 @@ if 'Tracing_1D_1W' in task_info_dic.values():
             
             
                 # Update the point's position on the plot
-                self.point.set_data(self.current_x, self.current_y)
+                self.point.set_data([self.current_x], [self.current_y])
                 self.canvas.draw()  # Refresh the plot
             
                 # Convert the point's (x, y) in data coordinates to pixel coordinates
@@ -1430,7 +1430,7 @@ if 'Tracing_2D_Bounded' in task_info_dic.values():
     
            
            # Update the point's position on the plot
-           self.point.set_data(self.current_x, self.current_y)
+           self.point.set_data([self.current_x], [self.current_y])
            self.canvas.draw()
        
            # Convert the point's (x, y) in data coordinates to pixel coordinates
@@ -1632,7 +1632,7 @@ if 'Tracing_2D_1W' in task_info_dic.values():
             self.adjust_y_limits()
         
             # Update the point's position on the plot
-            self.point.set_data(self.current_x, self.current_y)
+            self.point.set_data([self.current_x], [self.current_y])
             self.canvas.draw()  # Refresh the plot
         
             # Convert the point's (x, y) in data coordinates to pixel coordinates

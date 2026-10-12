@@ -16,8 +16,43 @@ from compound_BE import Look_for, Tracking_1D,Tracking_1D_1W,Tracking_1D_Random,
     Tracing_1D_Bounded,Tracing_1D_1W,Tracing_2D_Bounded,Tracing_2D_1W
 
 
+# Explicit registry of supported behavioral elements. Keep names aligned with GUI task definitions.
+BE_FUNCTIONS = {
+    "See": See,
+    "Hear": Hear,
+    "Choice": Choice,
+    "Press_button": Press_button,
+    "Mouse_click": Mouse_click,
+    "Judge_identity": Judge_identity,
+    "Judge_relative_location": Judge_relative_location,
+    "Count": Count,
+    "Cal_single_digit_num": Cal_single_digit_num,
+    "Look_at": Look_at,
+    "Store_to_WM": Store_to_WM,
+    "Look_for": Look_for,
+    "Tracking_1D": Tracking_1D,
+    "Tracking_1D_1W": Tracking_1D_1W,
+    "Tracking_1D_Random": Tracking_1D_Random,
+    "Tracking_2D": Tracking_2D,
+    "Tracking_2D_Random": Tracking_2D_Random,
+    "Tracking_2D_1W": Tracking_2D_1W,
+    "Tracing_1D_Bounded": Tracing_1D_Bounded,
+    "Tracing_1D_1W": Tracing_1D_1W,
+    "Tracing_2D_Bounded": Tracing_2D_Bounded,
+    "Tracing_2D_1W": Tracing_2D_1W,
+}
+
+
+def get_be_function(name):
+    """Resolve a configured behavioral element to its implementation."""
+    try:
+        return BE_FUNCTIONS[name]
+    except KeyError as exc:
+        raise ValueError(f"Unknown behavioral element: {name!r}") from exc
+
+
 entity_info={}
-#4.3 data record for sjourn time, used in plot section
+# Sojourn-time and response-time records used by plotting and reporting.
 
 sojourn_time_dic = {}
 rt_dic ={1:[],2:[],3:[],4:[],5:[]}
@@ -30,12 +65,12 @@ rmse_list=[]
 
 
 
-#4.6 Engine core/ engine ignition
+# Dispatch configured behavioral elements through the simulation engine.
 def process(qn_mhp,env,i,j,k,attribute,outserver_dic,arrival_time,generation,ppt,cpt,mpt):
             
     j=None
     
-    #entity information
+    # Record the generated entity attributes.
     entity_info[(i[0],k,generation)]=[]
     if attribute['stimuli']==0:
         entity_info[(i[0],k,generation)].append('noise')
@@ -45,23 +80,21 @@ def process(qn_mhp,env,i,j,k,attribute,outserver_dic,arrival_time,generation,ppt
                 entity_info[(i[0],k,generation)].append(attribute_dic[attribute[item]])
             else:
                 entity_info[(i[0],k,generation)].append(attribute[item])
-    #entity_info[(i[0],k)].append(j)
     
-    #activate operators 
+    # Execute each configured step in task order. 
     step_num=len(Tasklist_dic[k])
     for step in range(step_num):
         if len(Tasklist_dic[k][step])==1:
             a=Tasklist_dic[k][step][0]
             
-            yield env.process(eval(a)(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt))
+            yield env.process(get_be_function(a)(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt))
                             
         elif len(Tasklist_dic[k][step])==2:
             a=Tasklist_dic[k][step][0]
             b=Tasklist_dic[k][step][1]
             
-            yield env.process(eval(a)(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt)) & env.process(eval(b)(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt))
+            yield env.process(get_be_function(a)(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt)) & env.process(get_be_function(b)(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt))
 
-            #yield env.process(A)&env.process(B)
                     
         elif len(Tasklist_dic[k][step])==3:
             a=Tasklist_dic[k][step][0]
@@ -69,11 +102,11 @@ def process(qn_mhp,env,i,j,k,attribute,outserver_dic,arrival_time,generation,ppt
             c=Tasklist_dic[k][step][2]
 
           
-            A=eval(a)(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt)
+            A=get_be_function(a)(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt)
             
-            B=eval(b)(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt)                          
+            B=get_be_function(b)(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt)                          
    
-            C=eval(c)(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt)
+            C=get_be_function(c)(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt)
             yield env.process(A) and env.process(B) and env.process(C)
     
 
@@ -83,8 +116,7 @@ def process(qn_mhp,env,i,j,k,attribute,outserver_dic,arrival_time,generation,ppt
 
         rt_mean_dic[k].append(np.mean(rt_dic[k]))
         rt_var_dic[k].append(round(np.std(rt_dic[k]),2))    
-    #For look for: when target is found, function will be interrupted, 
-    #thus the time record for look for is manipulated in the 'look for' class
+    # Look_for may be interrupted when a target is found; it records timing separately.
         
 
     print('sojourn time for entity%s: %.2fmsec'%((i[0],k,generation),env.now-arrival_time))

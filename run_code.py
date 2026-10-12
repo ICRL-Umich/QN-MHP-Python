@@ -43,13 +43,15 @@ class Tee:
 
     def write(self, message):
         # Write to both file and console
-        self.file.write(message)
-        self.stdout.write(message)
-        self.file.flush()  # Ensure real-time logging (important for simulation)
+        if not self.file.closed:
+            self.file.write(message)
+            self.file.flush()
+        self.stdout.write(message)  # Ensure real-time logging (important for simulation)
 
     def flush(self):
         # Required for compatibility with sys.stdout
-        self.file.flush()
+        if not self.file.closed:
+            self.file.flush()
         self.stdout.flush()
 
 
@@ -78,7 +80,11 @@ sys.stdout = Tee(log_file)
 # Ensure log file is properly closed when the program exits
 # ----------------------------------------------------------------------
 def close_log():
-    sys.stdout.file.close()
+    if isinstance(sys.stdout, Tee):
+        tee = sys.stdout
+        sys.stdout = tee.stdout
+        if not tee.file.closed:
+            tee.file.close()
 
 atexit.register(close_log)
 
@@ -92,7 +98,9 @@ print("===== Simulation Started =====")
 
 
 env = simpy.Environment()
-gui_general.run()
+if not gui_general.run():
+    print("Simulation cancelled.")
+    sys.exit(0)
 
 #Run GUI
 
@@ -118,9 +126,38 @@ class ModelRun:
         """
         for no in Tasklist_dic:
             self.process_task(no)
+        # A standalone Look At has no See/Hear stimulus source. Generate
+        # visual entities explicitly so it can reach W, Y, Z and Eye Server.
+        # All other task types retain their original entity generation paths.
+        self.generate_standalone_look_at_entities()
         if entity_dic_see!={} or entity_dic_hear!={}:
             self.process_entity_data(entity_dic_see)
             self.process_entity_data(entity_dic_hear)
+
+    def generate_standalone_look_at_entities(self):
+        """Schedule developer-configurable stimuli for standalone Look At tasks."""
+        import json
+        from pathlib import Path
+
+        config_path = Path(__file__).with_name('look_at_layout.json')
+        config = json.loads(config_path.read_text(encoding='utf-8'))
+        stimulus = config.get('standalone_stimulus', {})
+        first_arrival_ms = float(stimulus.get('first_arrival_ms', 0))
+        interval_ms = float(stimulus.get('interval_ms', 500))
+        occurrences = int(stimulus.get('occurrences', 5))
+        if first_arrival_ms < 0 or interval_ms <= 0 or occurrences < 1:
+            raise ValueError('Invalid standalone Look At stimulus configuration')
+
+        for task_no, steps in Tasklist_dic.items():
+            if steps != [['Look_at']]:
+                continue
+            print('Scheduling standalone Look At: task=%s, first=%.2f ms, '
+                  'interval=%.2f ms, occurrences=%d' %
+                  (task_no, first_arrival_ms, interval_ms, occurrences))
+            env.process(gen_basic().color_en(
+                env, qnmhp, str(task_no), fa=first_arrival_ms,
+                iat=interval_ms, occur=occurrences, seeorhear='see'
+            ))
 
     def process_task(self, no):
         """
@@ -238,10 +275,23 @@ class ModelRun:
         print(utility.format_departure_server_table(utility.departure_server_N))
 
     def run(self):
+        # Start each new simulation with no previous Choice + Mouse_click target.
+        from mouse_click_layout import reset_cursor_positions
+        reset_cursor_positions()
+        from eye_movement_model import reset_eye_position
+        reset_eye_position()
+        # Restore the developer-configured Look For layout for every run.
+        # Fixed mode keeps positions; optional random mode reshuffles them.
+        if any('Look_for' in str(be) for tasks in gui_general.Tasklist_dic.values() for be in tasks):
+            utility.reset_visual_search_positions()
         """
         Run the simulation and handle animations and plotting.
         """
         self.entity()
+        print('Simulation setup: SIMTIME=%s ms, tasks=%s, visual sources=%d, auditory sources=%d' %
+              (SIMTIME, Tasklist_dic, len(entity_dic_see), len(entity_dic_hear)))
+        if not Tasklist_dic:
+            print('WARNING: No tasks were loaded from the saved configuration.')
         env.run(until=SIMTIME)  # Running time
 
         if anim == 1:
@@ -275,7 +325,15 @@ class ModelRun:
 # Initialize reaction if certain tasks are present
 if 'Look_at' in task_info_dic.values() or 'Look_for' in task_info_dic.values():
     from display_basic_BE import Reaction_general
-    Reaction_general().look_at()
+    # A standalone Look At must not inherit Look For search targets.
+    standalone_look_at = False
+    try:
+        from gui_general import Tasklist_dic
+        standalone_look_at = (len(Tasklist_dic) == 1 and
+                              list(Tasklist_dic.values())[0] == [['Look_at']])
+    except (ImportError, AttributeError, TypeError):
+        pass
+    Reaction_general().look_at(standalone=standalone_look_at)
     
 
 

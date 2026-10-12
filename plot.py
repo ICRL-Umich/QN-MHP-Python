@@ -60,7 +60,8 @@ class Plot:
                      label=f'Task {key}',marker='.'
                 )
     
-        self.ave_plot.legend()
+        if self.ave_plot.get_legend_handles_labels()[0]:
+            self.ave_plot.legend()
         
         
         self.sd_plot.cla()
@@ -76,7 +77,8 @@ class Plot:
                      label = f'Task {key}',marker='.'
                 )
         
-        self.sd_plot.legend()
+        if self.sd_plot.get_legend_handles_labels()[0]:
+            self.sd_plot.legend()
      
         self.data_plot.draw()
         self.canvas.update()

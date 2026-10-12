@@ -403,4 +403,8 @@ class Structure:
                 else:
                     break
                 
+        # Process pending Tk drawing events before animated entities begin moving.
+        # Keep this outside the per-frame animation loop to avoid extra event processing.
+        self.root.update_idletasks()
+        self.root.update()
         return space, Cache

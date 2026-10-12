@@ -89,7 +89,13 @@ class GUI_BE_Lookfor:
         judgei_target_dic = _load_task_dict(path+'/judgei_target_dic.txt')
         if self.task_key not in judgei_target_dic:
             judgei_target_dic[self.task_key] = {}
+        # Show the window promptly on macOS before any additional GUI work.
+        self.root.update_idletasks()
+        self.root.update()
         self.Lookfor()
+        self.show_initial_fixation()
+        self.root.update_idletasks()
+        self.root.update()
         
     def Lookfor(self):
 
@@ -125,6 +131,33 @@ class GUI_BE_Lookfor:
         
         tk.Button(self.root,text='Save',font=("Times New Roman",15),command=self.save).pack(pady=30)
         
+    def show_initial_fixation(self):
+        """Show the initial eye fixation and physical screen settings."""
+        from eye_movement_model import (INITIAL_FIXATION_MODE, INITIAL_FIXED_POSITION,
+                                        SCREEN_WIDTH_MM, SCREEN_HEIGHT_MM,
+                                        VIEWING_DISTANCE_MM)
+        import eye_movement_model as eye_model
+        if INITIAL_FIXATION_MODE == 'center':
+            x_mm, y_mm = SCREEN_WIDTH_MM / 2, SCREEN_HEIGHT_MM / 2
+            location = f'({x_mm:g}, {y_mm:g}) mm (screen center)'
+        elif INITIAL_FIXATION_MODE == 'fixed':
+            x_norm, y_norm = INITIAL_FIXED_POSITION
+            x_mm = x_norm * SCREEN_WIDTH_MM / 100
+            y_mm = y_norm * SCREEN_HEIGHT_MM / 100
+            location = f'({x_mm:g}, {y_mm:g}) mm (fixed)'
+        else:
+            location = 'Random within screen bounds (selected at simulation start)'
+        tk.Label(self.root, text='Initial Eye Position: ' + location,
+                 font=('Times New Roman', 13)).pack(pady=5)
+        tk.Label(self.root,
+                 text=(f'Screen: {SCREEN_WIDTH_MM:g} x {SCREEN_HEIGHT_MM:g} mm; '
+                       f'Viewing distance: {VIEWING_DISTANCE_MM:g} mm'),
+                 font=('Times New Roman', 12)).pack(pady=3)
+        tk.Label(self.root,
+                 text='Edit eye_movement_model.py for initial mode; '
+                      'visual_search_layout.json for screen and targets.',
+                 font=('Times New Roman', 10)).pack(pady=3)
+
     def lookfor_list(self):
         window=tk.Toplevel(self.root)
         sw=self.root.winfo_screenwidth()        #screen width

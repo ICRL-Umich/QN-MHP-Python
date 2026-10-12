@@ -1,181 +1,65 @@
-# QN-MHP Software README
+# QN-MHP Python
 
-## More detailed information can be found in `QN-MHP Python Work Instruction.pdf`
+A graphical simulation environment for the **Queueing Network Model Human Processor (QN-MHP)**. The model represents human information processing through interacting servers and supports studies of reaction time, task performance, and resource competition. Built with **Python, Tkinter, SimPy, NumPy, and Matplotlib**.
 
+For step-by-step operation, see **QN_MHP Python Work Instruction.pdf**.
 
-## 1. Overview
-Queueing Network Model Human Processor (QN-MHP) represents human information processing as a queueing network in which entities are processed by different servers, similar to how signals travel through the brain and are handled by different functional units. QN-MHP can be used to evaluate human performance, such as reaction time, and accuracy, during single-task and multitasking situations.
+## Getting started
 
-This repository implements a GUI-driven QN-MHP simulation environment built with Python, Tkinter, SimPy, and Matplotlib. The software lets a user define tasks, configure behavior elements (BEs), generate visual or auditory entities, run a simulation in SimPy time, and inspect outputs such as sojourn-time plots and optional animation windows.
+Install the project dependencies (including `simpy`, `numpy`, `matplotlib`, and `pyautogui`), then run:
 
-The codebase supports two broad classes of behaviors:
-- **Basic Behavioral Elements (Basic BEs)** such as `See`, `Hear`, `Store_to_WM`, `Choice`, `Judge_identity`, `Judge_relative_location`, `Count`, `Cal_single_digit_num`, `Press_button`, `Mouse_click`, and `Look_at`. They are the fundamental elements required to complete a task.
+```bash
+python run_code.py
+```
 
-- **Compound Behavioral Elements (Compound BEs)** such as `Look_for`, several tracking tasks, and several tracing tasks. Compound BEs coordinate multiple lower-level Basic BEs.
+In the GUI:
 
-## 2. Core runtime idea
-The software follows this high-level flow:
-1. Launch the main GUI from `run_code.py`.
-2. Define task numbers and BE order in the task-definition window.
-3. Define entity streams and BE-specific parameters.
-4. Define simulation time and whether animation is enabled.
-5. Build the SimPy environment and QN-MHP resources.
-6. Generate entities and dispatch them through the selected BE sequence.
-7. Record sojourn time, RMSE, and departure logs.
-8. Show plots and, when enabled, the animation/layout windows.
+1. **Define Task:** choose tasks, behavior elements (BEs), and their execution order.
+2. **Define Entity and BE Parameters:** configure stimuli and task-specific settings.
+3. **Define Simulation Parameters:** set simulation duration (milliseconds) and animation.
+4. **Start:** run the simulation and review logs and plots.
 
-## 3. Quick start
-1. Install the Python dependencies used by the codebase: `simpy`, `numpy`, `matplotlib`, `pyautogui`, and the standard-library modules already imported by the project.
-2. Place all project files in the same working directory.
-3. Run:
-   ```bash
-   python run_code.py
-   ```
-4. In the main menu:
-   - Click **1. Define Task** to choose task count, BE names, and order.
-   - Click **2. Define Entity and BE Parameters** to define entities and BE-specific settings.
-   - Click **3. Define Simulation Parameters** to set total simulation time and animation on or off.
-   - Click **Start** to begin the run.
+The task editor provides up to **five task slots**. Simultaneous execution depends on the task combination; in particular, tracking/tracing modes have additional restrictions. GUI capacity should not be interpreted as guaranteed support for five concurrent tasks.
 
-## 4. Main user workflow
-### Step 1 - Define tasks
-The task-definition GUI in `gui_general.py` provides up to five tasks (current version supports up to 2 tasks running at the same time). For each task you select:
-- the task number in row 1,
-- the BE name in odd-numbered columns,
-- the execution order in even-numbered columns.
+## Behavior elements
 
-The available BE list includes both basic and compound BEs.
+**Basic BEs:** `See`, `Hear`, `Store_to_WM`, `Choice`, `Judge_identity`, `Judge_relative_location`, `Count`, `Cal_single_digit_num`, `Press_button`, `Mouse_click`, and `Look_at`.
 
-### Step 2 - Define entities and BE parameters
-The entity/parameter GUI shows one vertical column per task. What appears depends on the chosen BEs:
-- If a task contains `See` and/or `Hear`, the top button opens the entity-definition window.
-- BEs that require extra parameters become clickable buttons.
-- BEs without user parameters appear as labels.
+**Compound BEs:** `Look_for`; tracking variants (`Tracking_1D`, `Tracking_1D_1W`, `Tracking_1D_Random`, `Tracking_2D`, `Tracking_2D_Random`, `Tracking_2D_1W`); and tracing variants (`Tracing_1D_Bounded`, `Tracing_1D_1W`, `Tracing_2D_Bounded`, `Tracing_2D_1W`). Compound BEs coordinate basic processing and response behaviors.
 
-Entity definition lets you enter up to four rows of entities per task. Each row contains:
-- entity type (`Color` or `Text`),
-- first arrival time,
-- IAT (interval arrival time),
-- occurrences.
+A standalone **Look At** task generates visual targets and processes each through **Server W → Server Y → Server Z → Eye Server**. Its reaction window distinguishes the current fixation from the next target. **Look For** performs visual search across a configurable set of targets; it has a separate reaction-window layout.
 
-### Step 3 - Define simulation parameters
-Set:
-- **Simulation Time (msec)**
-- **Animation** on/off
+## Coordinates and eye movement
 
-## 5. Parameter conventions
-### Time
-- All time in the simulation is **SimPy time in milliseconds**.
-- Service times are sampled through `random_ppt()`, `random_cpt()`, and `random_mpt()` in `utility.py`.
-- Plot labels such as sojourn time and RMSE are therefore based on the simulation clock, not wall-clock time.
+**Look At and Look For targets are specified in physical screen coordinates (millimeters)**, with origin at the **top-left**, x increasing rightward and y increasing downward. For example, on a 500 × 300 mm screen, the center is **(250 mm, 150 mm)**. The physical screen width, height, and viewing distance are configured in `visual_search_layout.json`.
 
-### Coordinates
-- Many task-specific windows use coordinates in a normalized range such as **0-100**.
-- `Look_at` uses discrete table coordinates from **1-9** on x and y.
-- `Mouse_click` supports 1D, 2D, and 3D display modes.
-- Tracking/tracing windows convert plotted pixel positions to millimeters for internal calculations through `pixels_to_mm()`.
+- **Look At:** `look_at_layout.json` specifies standalone random/fixed targets, combined-task target behavior, and standalone stimulus timing. Standalone Look At generates a new random target by default; combined Look At uses a fixed center target by default.
+- **Look For:** `visual_search_layout.json` specifies the search-target positions, labels, and colors in millimeters.
+- **Internal eye coordinates:** physical positions are converted to a **0–100 normalized screen range** before eye-movement calculations. The eye model uses physical display geometry and viewing distance to calculate **visual-angle displacement in degrees**, then estimates saccade duration in **milliseconds**. The default timing coefficients are illustrative, not experimentally calibrated.
+- **Tracking and tracing:** plot/task coordinates are distinct from physical screen millimeters. Visible plot positions are mapped into normalized screen coordinates for eye movement; plotted coordinates should not be interpreted as measured physical positions without display calibration.
+- **Mouse Click:** supports 1D, 2D, and 3D task representations; mouse movement timing is separate from eye movement timing.
 
-## 6. Basic BE summary
-### `See`
-Processes visual entities. In animation mode it routes a visual signal through perceptual servers 1, 2, 3, and 4, then to memory-related servers depending on the information type.
+## Simulation and outputs
 
-### `Hear`
-Processes auditory entities through the auditory pathway and records departures similarly to `See`, but using auditory assumptions.
+Simulation time and server service times are in **milliseconds**. Entities are scheduled through SimPy and dispatched to the selected BE sequences. Outputs can include console departure summaries, BE/server sojourn-time statistics, optional QN-MHP animations and reaction windows, and RMSE plots for tracking/tracing tasks. Results depend on task setup and whether events complete before the simulation ends.
 
-### `Store_to_WM`
-Stores selected entity information into working-memory structures.
+The software stores GUI configurations and experiment parameters in its active save directory (commonly `backup/`). Use the GUI's save/open controls to preserve experiment settings.
 
-### `Choice`
-Makes a selection among alternatives. It is reused directly by some compound tasks to choose a corrective action or response.
+## Project structure
 
-### `Judge_identity`
-Compares the perceived entity with the user-defined target identity (text or color).
+| File | Purpose |
+| --- | --- |
+| `run_code.py`, `main_process.py` | GUI entry point, simulation setup, entity dispatch |
+| `gui_general.py`, `gui_basic_BE.py`, `gui_compound_BE.py` | Task and parameter configuration |
+| `entity_basic_BE.py`, `entity_compound_BE.py` | Entity generation |
+| `basic_BE.py`, `compound_BE.py`, `model.py` | BE logic and SimPy server resources |
+| `eye_movement_model.py`, `look_at_target.py`, `mouse_movement_model.py` | Movement geometry and timing |
+| `visual_search_layout.json`, `look_at_layout.json` | Physical display and target configuration |
+| `display_basic_BE.py`, `display_compound_BE.py`, `animation_general.py`, `qn_mhp_layout.py` | Reaction windows and animation |
+| `plot.py`, `utility.py` | Results, shared utilities, and persistence |
 
-### `Judge_relative_location`
-Compares target and cursor or point locations. Used heavily inside tracking/tracing tasks.
+## Extending the model
 
-### `Count`
-Counts over a configured length and visualizes the count progression in the reaction window.
+The software serves as both a QN-MHP demonstration environment and a foundation for custom task simulations. Developers can reuse and combine individual BE implementations, adjust their parameters, and construct workflows beyond those exposed by the GUI.
 
-### `Cal_single_digit_num`
-Performs one of four arithmetic operations selected in the GUI: add, subtract, multiply, or divide.
-
-### `Press_button`
-Shows button-like stimuli and highlights the chosen option.
-
-### `Mouse_click`
-Displays a 1D, 2D, or 3D click-space visualization and records click positions.
-
-### `Look_at`
-Moves eye fixation to a discrete table location in the `Reaction_general` window.
-
-## 7. Compound BE summary
-### `Look_for`
-Recursively performs a visual search. It repeatedly runs `Look_at -> See -> Judge_identity -> Store_to_WM` until the target is found or the configured search list is exhausted.
-
-### Tracking tasks
-- `Tracking_1D`
-- `Tracking_1D_1W`
-- `Tracking_1D_Random`
-- `Tracking_2D`
-- `Tracking_2D_Random`
-- `Tracking_2D_1W`
-
-These tasks display moving targets and a cursor, repeatedly perceive both target and cursor locations, judge their relative location, then respond through mouse click or keyboard press. RMSE is accumulated across responses.
-
-### Tracing tasks
-- `Tracing_1D_Bounded`
-- `Tracing_1D_1W`
-- `Tracing_2D_Bounded`
-- `Tracing_2D_1W`
-
-These tasks operate on point-tracing displays rather than target-cursor tracking displays. They use movement amplitude, direction, shape, and response settings.
-
-## 8. File map
-- `run_code.py` - entry point; starts GUI, builds model, runs simulation, and shows plots.
-- `gui_general.py` - main menu, task-definition UI, entity-definition UI, simulation-parameter UI.
-- `gui_basic_BE.py` - parameter windows for basic BEs.
-- `gui_compound_BE.py` - parameter windows for compound BEs.
-- `entity_basic_BE.py` - generators for color and text entities.
-- `entity_compound_BE.py` - generators for compound tasks.
-- `main_process.py` - dispatches each entity through the ordered BE list.
-- `basic_BE.py` - implementations of all basic BEs.
-- `compound_BE.py` - implementations of all compound BEs.
-- `model.py` - SimPy resources and server service definitions.
-- `animation_general.py` - canvas-based entity animation on the QN-MHP layout.
-- `qn_mhp_layout.py` - background layout and canvas classes.
-- `display_basic_BE.py` - reaction windows for button, counting, arithmetic, look-at, and click tasks.
-- `display_compound_BE.py` - reaction windows for tracking and tracing tasks.
-- `plot.py` - mean/SD sojourn plot and RMSE plot.
-- `utility.py` - shared dictionaries, constants, persistence helpers, and utility functions.
-
-## 9. Persistence and backup
-The software writes configuration values into the `backup/` folder using pickle files. Important behavior:
-- a fresh run resets the session folder through `reset_session_folder('backup/')`,
-- **save as** copies the current `backup/` contents to a user-selected folder,
-- **open** switches the active path to a selected folder and loads saved settings from there.
-
-## 10. Outputs
-Typical outputs include:
-- `task_info_dic.txt`, `simtime.txt`, `anim.txt`, and many task-specific parameter files in the active save folder,
-- run-time print output in the console,
-- sojourn-time mean and standard-deviation plots,
-- RMSE plot for tracking/tracing tasks,
-- departure summaries for behavior elements and servers.
-
-## 11. Important implementation notes
-- The software mixes GUI state, global variables, and file-backed dictionaries. Saving parameters is therefore part of the normal workflow.
-- Several windows create conditional classes only when the relevant task exists in `task_info_dic`.
-- `Look_for` uses the predefined `look_for_ls` item list in `utility.py`.
-- Tracking and tracing shapes are generated by helper functions in `utility.py` and the display classes in `display_compound_BE.py`.
-
-## 12. Recommended usage notes
-- Define tasks first. The entity and parameter windows assume task structure already exists.
-- Save task and entity settings before closing windows.
-- When debugging, keep animation enabled only when needed; it opens multiple windows and slows execution.
-- For repeatable studies, keep a dedicated save folder for each experiment condition.
-
-## 13. Future application and development notes
-This program is primarily intended as a demonstration platform for illustrating the structure and behavior of QN-MHP behavior elements (BEs). At the same time, the current implementation can serve as a modular library of BE functions and classes for future developers. If only a subset of BEs is needed for a more complex or task-specific application, developers can directly call the relevant BE functions or classes, adjust their parameters, and recombine them to construct new task flows beyond the predefined GUI configurations. As a result, the codebase is suitable not only for demonstration and teaching, but also as a foundation for further model development and customized simulation tasks.
-
-An example application of this framework can be found in: Wang, Y., Liu, Y., & Yang, X. J. (2025, September). Experimental Investigation and Queuing Network (QN) Modeling of Speed-Accuracy Tradeoff (SAT) and Speed-Confidence Tradeoff (SCT) in Multi-Task Human-Robot Collaboration (HRC). In Proceedings of the Human Factors and Ergonomics Society Annual Meeting (Vol. 69, No. 1, pp. 541-547). SAGE Publications.
+**Example research application:** Wang, Y., Liu, Y., & Yang, X. J. (2025). *Experimental Investigation and Queuing Network (QN) Modeling of Speed-Accuracy Tradeoff (SAT) and Speed-Confidence Tradeoff (SCT) in Multi-Task Human-Robot Collaboration (HRC).* Proceedings of the Human Factors and Ergonomics Society Annual Meeting, 69(1), 541–547.

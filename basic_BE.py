@@ -734,11 +734,18 @@ def Cal_single_digit_num(qn_mhp,env,i,j,k,attribute,outserver_dic,arrival_time,g
 
 
 
+# Choice + Mouse_click uses the same response-target display as Choice + Press_button.
+# The mouse movement time remains calculated by Mouse_click (Fitts' law).
+def _is_choice_mouse_click(task):
+    return (any('Choice' in step for step in task)
+            and any('Mouse_click' in step for step in task)
+            and not any('Press_button' in step for step in task))
+
 #for various press_button display background in different task scenarios
 window={}
 for k in Tasklist_dic:
     window[k]=None
-    if ['Press_button'] in Tasklist_dic[k]:
+    if ['Press_button'] in Tasklist_dic[k] or _is_choice_mouse_click(Tasklist_dic[k]):
         #simple reaction time or choice reaction time
         if any('Choice' in sublist for sublist in Tasklist_dic[k]):   
             from display_basic_BE import reaction_press_button
@@ -877,11 +884,11 @@ def Press_button(qn_mhp,env,i,j,k,attribute,outserver_dic,arrival_time,generatio
 #This is for multitask scenarios, multiple windows will be open for multiple mouse click tasks
 reaction_c = {}       
 for k in Tasklist_dic:
-    if ['Mouse_click'] in Tasklist_dic[k]:
+    if ['Mouse_click'] in Tasklist_dic[k] and not _is_choice_mouse_click(Tasklist_dic[k]):
         #simple reaction time or choice reaction time
             from display_basic_BE import Reaction_click
             from gui_basic_BE import mouse_click_dimension_dic
-            mouse_click_dimension = eval(mouse_click_dimension_dic[k])
+            mouse_click_dimension = int(mouse_click_dimension_dic[k])
             reaction_c[k] = Reaction_click(mouse_click_dimension)
             
 def Mouse_click(qn_mhp,env,i,j,k,attribute,outserver_dic,arrival_time,generation,ppt,cpt,mpt,**kwargs):
@@ -927,19 +934,15 @@ def Mouse_click(qn_mhp,env,i,j,k,attribute,outserver_dic,arrival_time,generation
     #kwargs['dimension']:1d,2d,3d
     #kwargs['width']:W
     #kwargs['coords']: (cursor_x,target_x,cursor_y,target_y,cursor_z,target_z)
-    #Fitt's Law for clicking
-    a=1
-    b=2
+    # Shared, configurable Fitts' Law implementation for all mouse tasks.
+    from mouse_movement_model import calculate_mouse_movement_time
     if kwargs:
         W=kwargs['width']
         if kwargs['dimension'] == '1d':      
             cursor_x = kwargs['coords'][0]
             target_x = kwargs['coords'][1]
             A=abs(cursor_x-target_x)
-            if A!=0:
-                MT=a+b*math.log2(2*A/W)
-            else:
-                MT=0
+            MT = calculate_mouse_movement_time(A, W)
             yield env.timeout(MT) 
         elif kwargs['dimension'] == '2d': 
             #unit: mm in the real world
@@ -948,10 +951,7 @@ def Mouse_click(qn_mhp,env,i,j,k,attribute,outserver_dic,arrival_time,generation
             cursor_y = kwargs['coords'][2]
             target_y = kwargs['coords'][3]
             A=np.sqrt((cursor_x-target_x)**2 + (cursor_y-target_y)**2)
-            if A!=0:
-                MT=a+b*math.log2(2*A/W)
-            else:
-                MT=0
+            MT = calculate_mouse_movement_time(A, W)
             #At righthand server
             #If receiving entity (i) from Server Z 
             if outserver_dic[203] == 1:
@@ -964,10 +964,14 @@ def Mouse_click(qn_mhp,env,i,j,k,attribute,outserver_dic,arrival_time,generation
                     u.departure_server_N ['righthand'][k]['number'].append(len(u.departure_server_N ['righthand'][k]['time']))
     else:
         
-        reaction_c[k].create_initial_point(attribute['eye_loc'],i[0])
+        choice_click = _is_choice_mouse_click(Tasklist_dic[k])
+        if not choice_click:
+            reaction_c[k].create_initial_point(attribute['eye_loc'],i[0])
         W=0.5
         #attribute['eye_loc']:[target_x,user_x,target_y,user_y,target_z,user_z]
         from gui_basic_BE import mouse_click_dimension_dic
+        from gui_basic_BE import mouse_click_dimension_dic
+        mouse_click_dimension = int(mouse_click_dimension_dic[k])
         if mouse_click_dimension == 1:
             cursor_x = attribute['eye_loc'][1]
             target_x = attribute['eye_loc'][0]
@@ -992,10 +996,38 @@ def Mouse_click(qn_mhp,env,i,j,k,attribute,outserver_dic,arrival_time,generation
             print(f'from ({cursor_x},{cursor_y},{cursor_z}) to ({target_x},{target_y},{target_z})')
             A = np.sqrt((cursor_x-target_x)**2 + (cursor_y-target_y)**2 + (cursor_z-target_z)**2)
         
-        if A!=0:
-            MT=a+b*math.log2(2*A/W)
-        else:
-            MT=0
+        if choice_click and window.get(k):
+            # Choice + Mouse_click: use the actual displayed button geometry.
+            # Start at the last COMPLETED click (center on the first trial).
+            # Independent Mouse_click keeps its original random coordinates.
+            from mouse_click_layout import button_geometry, button_depth, get_start, complete_click
+            from utility import color_list, text_list
+            reaction_window = window[k]
+            count = reaction_window.N
+            if reaction_window.sti_type == 'color':
+                selected = color_list.index(attribute['color']) if count > 1 else 0
+            else:
+                selected = text_list.index(attribute['text']) if count > 1 else 0
+            if selected >= count:
+                raise ValueError('Choice target is outside the configured button layout')
+            target_x, target_y, button_w, button_h = button_geometry(
+                selected, count, reaction_window.w, reaction_window.h, mouse_click_dimension)
+            start_x, start_y = get_start(k, reaction_window.w, reaction_window.h)
+            if mouse_click_dimension == 1:
+                A = abs(target_x - start_x)
+            elif mouse_click_dimension == 2:
+                A = math.hypot(target_x - start_x, target_y - start_y)
+            else:
+                # A flat-screen target has z=0. Developers may configure
+                # per-button depths in mouse_click_layout.button_depth().
+                target_z = button_depth(selected, count)
+                start_z = 0.0  # First trial / previous flat-screen click.
+                A = math.sqrt((target_x - start_x)**2 +
+                              (target_y - start_y)**2 + (target_z - start_z)**2)
+            W = button_w
+            print(f'Choice mouse click: start=({start_x:.1f},{start_y:.1f}), '
+                  f'target=({target_x:.1f},{target_y:.1f}), width={W:.1f}')
+        MT = calculate_mouse_movement_time(A, W)
         
         #At righthand server
         #If receiving entity (i) from Server Z 
@@ -1004,14 +1036,27 @@ def Mouse_click(qn_mhp,env,i,j,k,attribute,outserver_dic,arrival_time,generation
                 yield request
 
                 yield env.timeout(MT)  
-        reaction_c[k].move_point()
-        reaction_c[k].delete_point()
+        if choice_click:
+            if window.get(k):
+                complete_click(k, (target_x, target_y))
+                window[k].add_button(i)
+        else:
+            reaction_c[k].move_point()
+            reaction_c[k].delete_point()
             #reaction_c.root_1d.mainloop()
             
     print('%.2fmsec, Mouse_click ends for entity #%s'%(env.now,(i[0],k)))
 
     #update departure number
     u.departure_BE_N['Mouse_click'][k]=i[0]
+
+def _standalone_look_at_task(task_number):
+    """Check the current task, not other tasks present in the model."""
+    try:
+        return Tasklist_dic[task_number] == [['Look_at']]
+    except (KeyError, TypeError, NameError):
+        return False
+
 
 def Look_at(qn_mhp,env,i,j,k,attribute,outserver_dic,arrival_time,generation,ppt,cpt,mpt):   
     
@@ -1024,12 +1069,15 @@ def Look_at(qn_mhp,env,i,j,k,attribute,outserver_dic,arrival_time,generation,ppt
         yield env.timeout(0)
         print('%.2fmsec, Look_at BE is enabled by receiving entity #%s'%(env.now,(i[0],k)))  
         #At serverW: 
+        print("%.2fmsec, Look_at requests Server W for entity #%s" % (env.now, (i[0], k)))
         animation.enter(qn_mhp.serverW, 'W', 'C_W', i, j, k,generation)
         with qn_mhp.serverW.request() as request:           
             yield request           
+            print("%.2fmsec, Look_at starts Server W for entity #%s (MPT=%.2f ms)" % (env.now, (i[0], k), mpt))
             animation.add('W', i, j, k, generation)         
             yield env.timeout(mpt)  #use mpt time           
-        animation.delete( i, j, k,'W',generation)      
+        animation.delete( i, j, k,'W',generation)
+        print("%.2fmsec, Look_at exits Server W for entity #%s" % (env.now, (i[0], k)))      
         outserver_dic[201] = 1  #Send entity (i) to Server Y 
         #update deaprture number of server
         u.departure_server_N ['serverW'][k]['time'].append(env.now)
@@ -1040,23 +1088,29 @@ def Look_at(qn_mhp,env,i,j,k,attribute,outserver_dic,arrival_time,generation,ppt
     #At serverY
     #If receiving entity (i) from Server W
         if outserver_dic[201] == 1:
+            print("%.2fmsec, Look_at requests Server Y for entity #%s" % (env.now, (i[0], k)))
             animation.enter(qn_mhp.serverY, 'Y', 'W_Y', i, j, k,generation)
             with qn_mhp.serverY.request() as request:              
                 yield request              
+                print("%.2fmsec, Look_at starts Server Y for entity #%s (MPT=%.2f ms)" % (env.now, (i[0], k), mpt))
                 animation.add('Y', i, j, k, generation)            
                 yield env.timeout(mpt) #Use mpt time               
-            animation.delete( i, j, k,'Y',generation)          
+            animation.delete( i, j, k,'Y',generation)
+            print("%.2fmsec, Look_at exits Server Y for entity #%s" % (env.now, (i[0], k)))          
             outserver_dic[202] = 1   #Send entity (i) to Server Z 
             #update deaprture number of server
             u.departure_server_N ['serverY'][k]['time'].append(env.now)
             u.departure_server_N ['serverY'][k]['number'].append(len(u.departure_server_N ['serverY'][k]['time']))
         if outserver_dic[202] == 1:
+            print("%.2fmsec, Look_at requests Server Z for entity #%s" % (env.now, (i[0], k)))
             animation.enter(qn_mhp.serverZ, 'Z', 'Y_Z', i, j, k,generation)
             with qn_mhp.serverZ.request() as request:               
                 yield request                
+                print("%.2fmsec, Look_at starts Server Z for entity #%s (MPT=%.2f ms)" % (env.now, (i[0], k), mpt))
                 animation.add('Z', i, j, k, generation)               
                 yield env.timeout(mpt) #Use mpt time                
-            animation.delete( i, j, k,'Z',generation)           
+            animation.delete( i, j, k,'Z',generation)
+            print("%.2fmsec, Look_at exits Server Z for entity #%s" % (env.now, (i[0], k)))           
             outserver_dic[203] = 1  #Send entity (i) to Eye Server        
             #update deaprture number of server
             u.departure_server_N ['serverZ'][k]['time'].append(env.now)
@@ -1066,30 +1120,42 @@ def Look_at(qn_mhp,env,i,j,k,attribute,outserver_dic,arrival_time,generation,ppt
         if outserver_dic[203] == 1:
             #yield time
             # can use Normal Distribution (mean=30 msec, sd=10 msec)or 20, 30, 40 msec for short, medium, or long saccades)
+            print("%.2fmsec, Look_at requests Eye Server for entity #%s" % (env.now, (i[0], k)))
             animation.enter(qn_mhp.eyes, '23', 'Z_23', i, j, k,generation)
             with qn_mhp.eyes.request() as request:
                 yield request                
+                print("%.2fmsec, Look_at starts Eye Server for entity #%s" % (env.now, (i[0], k)))
                 animation.add('23', i, j, k, generation) 
-                # Generate normally distributed values
-                samples = np.random.normal(30, 10, 1) 
-                # Clip any negative values to 0
-                samples = np.clip(samples, 0, None)
-                yield env.timeout(samples[0])  
+                from eye_movement_model import prepare_eye_motion, complete_saccade
+                eye_start, eye_target, amplitude, duration = prepare_eye_motion(attribute)
+                if _standalone_look_at_task(k):
+                    from display_basic_BE import Reaction_general
+                    Reaction_general().show_look_at(eye_start, eye_target)
+                if eye_target is not None:
+                    print('Eye saccade: start=%s target=%s amplitude=%.2f deg duration=%.2f ms' %
+                          (eye_start, eye_target, amplitude, duration))
+                yield env.timeout(duration)
+                if eye_target is not None:
+                    complete_saccade(eye_target)  
                 #update deaprture number of server
                 u.departure_server_N ['eyes'][k]['time'].append(env.now)
                 u.departure_server_N ['eyes'][k]['number'].append(len(u.departure_server_N ['eyes'][k]['time']))
             animation.delete(i, j, k, '23',generation)
+            print("%.2fmsec, Look_at exits Eye Server for entity #%s" % (env.now, (i[0], k)))
                 
             #Recording/updating new eye fixation location/direction   
     
-            neweyefixation = attribute['eye_loc']  #set by programmer for now
+            neweyefixation = eye_target if eye_target is not None else attribute['eye_loc']
+            if _standalone_look_at_task(k):
+                from display_basic_BE import Reaction_general
+                Reaction_general().show_look_at(neweyefixation, None)
             eyefixation_dic[(i[0],k)] = neweyefixation    
             #send a “communications signal,” Note: this signal is not an internal QN entity”to device/environment       
             communication_signal = 1
             print('%.2fmsec, Look_at ends for entity #%s'%(env.now,(i[0],k)))         
-        if 'Look_at' in task_info_dic.values() or 'Look_for' in task_info_dic.values():
+        if not _standalone_look_at_task(k) and ('Look_at' in task_info_dic.values() or 'Look_for' in task_info_dic.values()):
             from display_basic_BE import Reaction_general
-            Reaction_general().show_eye(neweyefixation[0], neweyefixation[1])
+            Reaction_general().show_eye(neweyefixation[1], neweyefixation[0])
         
         
 
@@ -1097,6 +1163,7 @@ def Look_at(qn_mhp,env,i,j,k,attribute,outserver_dic,arrival_time,generation,ppt
         #Look_At is enabled if receiving entity (i) from Server C(or any entity from CogNet, in general)
         print('%.2fmsec, Look_at BE is enabled by receiving entity #%s'%(env.now,(i[0],k)))  
         #At serverW:  
+        print("%.2fmsec, Look_at enters Server W for entity #%s" % (env.now, (i[0], k)))
         with qn_mhp.serverW.request() as request:
         
             yield request
@@ -1104,12 +1171,16 @@ def Look_at(qn_mhp,env,i,j,k,attribute,outserver_dic,arrival_time,generation,ppt
             yield env.timeout(mpt)  #use mpt time
    
         outserver_dic[201] = 1  #Send entity (i) to Server Y 
+        u.departure_server_N["serverW"][k]["time"].append(env.now)
+        u.departure_server_N["serverW"][k]["number"].append(len(u.departure_server_N["serverW"][k]["time"]))
+        print("%.2fmsec, Look_at exits Server W for entity #%s (MPT=%.2f ms)" % (env.now, (i[0], k), mpt))
         
         #At serverY
         #If receiving entity (i) from Server W
         #At serverY
         #If receiving entity (i) from Server W
         if outserver_dic[201] == 1:
+            print("%.2fmsec, Look_at enters Server Y for entity #%s" % (env.now, (i[0], k)))
             with qn_mhp.serverY.request() as request:
              
                 yield request
@@ -1117,8 +1188,12 @@ def Look_at(qn_mhp,env,i,j,k,attribute,outserver_dic,arrival_time,generation,ppt
                 yield env.timeout(mpt) #Use mpt time
      
             outserver_dic[202] = 1   #Send entity (i) to Server Z 
+            u.departure_server_N["serverY"][k]["time"].append(env.now)
+            u.departure_server_N["serverY"][k]["number"].append(len(u.departure_server_N["serverY"][k]["time"]))
+            print("%.2fmsec, Look_at exits Server Y for entity #%s (MPT=%.2f ms)" % (env.now, (i[0], k), mpt))
         
         if outserver_dic[202] == 1:
+            print("%.2fmsec, Look_at enters Server Z for entity #%s" % (env.now, (i[0], k)))
             with qn_mhp.serverZ.request() as request:
     
                 
@@ -1126,19 +1201,39 @@ def Look_at(qn_mhp,env,i,j,k,attribute,outserver_dic,arrival_time,generation,ppt
                 yield env.timeout(mpt) #Use mpt time
      
             outserver_dic[203] = 1  #Send entity (i) to Eye Server        
+            u.departure_server_N["serverZ"][k]["time"].append(env.now)
+            u.departure_server_N["serverZ"][k]["number"].append(len(u.departure_server_N["serverZ"][k]["time"]))
+            print("%.2fmsec, Look_at exits Server Z for entity #%s (MPT=%.2f ms)" % (env.now, (i[0], k), mpt))
              
         #At Eye server
         #If receiving entity (i) from Server Z 
         if outserver_dic[203] == 1:
             #yield time
             # can use Normal Distribution (mean=30 msec, sd=10 msec)or 20, 30, 40 msec for short, medium, or long saccades)
+            print("%.2fmsec, Look_at enters Eye Server for entity #%s" % (env.now, (i[0], k)))
             with qn_mhp.eyes.request() as request:               
                 yield request    
-                yield env.timeout(np.random.normal(30,10)) 
+                from eye_movement_model import prepare_eye_motion, complete_saccade
+                eye_start, eye_target, amplitude, duration = prepare_eye_motion(attribute)
+                if _standalone_look_at_task(k):
+                    from display_basic_BE import Reaction_general
+                    Reaction_general().show_look_at(eye_start, eye_target)
+                if eye_target is not None:
+                    print('Eye saccade: start=%s target=%s amplitude=%.2f deg duration=%.2f ms' %
+                          (eye_start, eye_target, amplitude, duration))
+                yield env.timeout(duration)
+                if eye_target is not None:
+                    complete_saccade(eye_target) 
+            u.departure_server_N["eyes"][k]["time"].append(env.now)
+            u.departure_server_N["eyes"][k]["number"].append(len(u.departure_server_N["eyes"][k]["time"]))
+            print("%.2fmsec, Look_at exits Eye Server for entity #%s" % (env.now, (i[0], k)))
               
             #Recording/updating new eye fixation location/direction   
     
-            neweyefixation = attribute['eye_loc']  #set by programmer for now
+            neweyefixation = eye_target if eye_target is not None else attribute['eye_loc']
+            if _standalone_look_at_task(k):
+                from display_basic_BE import Reaction_general
+                Reaction_general().show_look_at(neweyefixation, None)
             eyefixation_dic[(i[0],k)] = neweyefixation    
             #send a “communications signal,” Note: this signal is not an internal QN entity”to device/environment       
             communication_signal = 1

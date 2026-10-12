@@ -1,0 +1,17 @@
+{
+  "standalone_target_mode": "random",
+  "standalone_fixed_target_mm": {
+    "x_mm": 250,
+    "y_mm": 150
+  },
+  "combined_target_mode": "fixed",
+  "combined_target_mm": {
+    "x_mm": 250,
+    "y_mm": 150
+  },
+  "standalone_stimulus": {
+    "first_arrival_ms": 0,
+    "interval_ms": 500,
+    "occurrences": 5
+  }
+}

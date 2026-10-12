@@ -291,14 +291,83 @@ text_list = ['A','B','C','D','E','F','G','H']
     
 #5.2 for Look_for
 #items for look_for task    
-look_for_ls=[[(1,1),'a','red'],\
-                    [(2,2),'b','green'],\
-                       [(3,3),'c','blue'],\
-                           [(1,3),'d','yellow']]
-look_for_dic = {"1D":[[(1,1),'a','red'],\
-                    [(1,2),'b','green'],\
-                       [(1,3),'c','blue'],\
-                           [(1,4),'d','yellow']],"2D":[]}
+# Edit visual_search_layout.json to set any number of targets at arbitrary
+# positions in the normalized visual field (x/y between 0 and 100).
+# The legacy tuple is (row=y, column=x), followed by label and color.
+import json as _visual_json
+from pathlib import Path as _VisualPath
+
+import math
+
+def _load_visual_search_config():
+    """Validate screen geometry and target coordinates in physical millimeters."""
+    config_path = _VisualPath(__file__).with_name('visual_search_layout.json')
+    if not config_path.exists():
+        raise FileNotFoundError('Missing Look For configuration: ' + str(config_path))
+    data = _visual_json.loads(config_path.read_text(encoding='utf-8'))
+    if data.get('coordinate_system') != 'millimeters':
+        raise ValueError('Look For coordinate_system must be millimeters')
+    if data.get('position_mode', 'fixed') not in ('fixed', 'random'):
+        raise ValueError('Look For position_mode must be fixed or random')
+    screen = data['screen']
+    width = float(screen['width_mm'])
+    height = float(screen['height_mm'])
+    distance = float(screen['viewing_distance_mm'])
+    if not all(math.isfinite(value) and value > 0 for value in (width, height, distance)):
+        raise ValueError('Screen dimensions and viewing distance must be positive finite millimeters')
+    # One geometry for the Look For layout and the Eye Server's angle calculation.
+    import eye_movement_model as eye_model
+    eye_model.SCREEN_WIDTH_MM = width
+    eye_model.SCREEN_HEIGHT_MM = height
+    eye_model.VIEWING_DISTANCE_MM = distance
+    return data, width, height
+
+
+def _load_visual_search_targets():
+    """Read physical target coordinates, preserving the legacy (y, x) layout API.
+
+    Internally the existing renderer and Eye Server still accept normalized
+    0..100 coordinates. Convert physical millimeters at this boundary so that
+    target rendering and movement timing use identical positions.
+    """
+    data, width, height = _load_visual_search_config()
+    targets = []
+    for index, item in enumerate(data['targets'], start=1):
+        x_mm, y_mm = float(item['x_mm']), float(item['y_mm'])
+        if not (math.isfinite(x_mm) and math.isfinite(y_mm) and
+                0 <= x_mm <= width and 0 <= y_mm <= height):
+            raise ValueError('Look For target %d must be within screen dimensions in mm' % index)
+        label, color = str(item['label']), str(item['color']).lower()
+        if not label:
+            raise ValueError('Look For target %d has an empty label' % index)
+        if color not in color_dic:
+            raise ValueError('Look For target %d has unsupported color %r; use %s' %
+                             (index, color, ', '.join(sorted(color_dic))))
+        targets.append(((100 * y_mm / height, 100 * x_mm / width), label, color))
+    if not targets:
+        raise ValueError('At least one Look For target is required')
+    return targets
+
+
+def reset_visual_search_positions():
+    """Reload developer configuration at the start of each simulation run."""
+    from random import uniform
+    data, _width, _height = _load_visual_search_config()
+    templates = _load_visual_search_targets()
+    if data.get('position_mode', 'fixed') == 'random':
+        templates = [((uniform(5, 95), uniform(5, 95)), label, color)
+                     for _position, label, color in templates]
+    look_for_ls[:] = templates
+    return look_for_ls
+
+
+look_for_ls = _load_visual_search_targets()
+
+# Backward-compatible name for integrations using the earlier randomizer.
+def randomize_visual_search_positions():
+    return reset_visual_search_positions()
+
+look_for_dic = {'2D': look_for_ls}
 n_look_for_ls=len(look_for_ls)
 look_at_list = [str(item[0]) for item in look_for_ls]
 #5.3 for Mouse click

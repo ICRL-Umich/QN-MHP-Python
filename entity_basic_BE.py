@@ -39,6 +39,21 @@ class entity_generation:
 
         return attribute
     
+    def _apply_count_defaults(self, attribute, k):
+        """Attach Count parameters to text entities only."""
+        if ['Count'] not in Tasklist_dic[k]:
+            return attribute
+        from gui_basic_BE import length_count
+        if length_count is None:
+            raise ValueError('Count Length is missing. Save Count parameters before starting the simulation.')
+        count_length = int(length_count)
+        if not 1 <= count_length <= 10:
+            raise ValueError('Count Length must be an integer between 1 and 10.')
+        start = randint(1, 9)
+        attribute['Start'] = start
+        attribute['End'] = start + count_length - 1
+        return attribute
+
     def color_en (self,env,qn_mhp,k_,fa=None,iat=None,occur=None,**kwargs):
         
         self.color_IAT=iat
@@ -100,11 +115,20 @@ class entity_generation:
                     
                     
                 if any('Look_at' in sublist for sublist in Tasklist_dic[k]):
-                    from gui_basic_BE import eyeloc_ini
-                    attribute={'stimuli':1, 'type':2, 'info':randint(4,7),'eye_loc':(eyeloc_ini["x",k],eyeloc_ini["y",k]),'color':(255,255,255)}
+                    from look_at_target import target_for_task
+                    # Preserve stimulus color/text for See -> Choice -> Press_button.
+                    # Only the gaze target is changed by Look At.
+                    standalone = len(Tasklist_dic[k]) == 1
+                    attribute['_visual_gaze_target'] = target_for_task(standalone)
+                    attribute['eye_loc'] = attribute['_visual_gaze_target']
+                    attribute['type'] = 2
                 
                 if any('Mouse_click' in sublist for sublist in Tasklist_dic[k]):
-                    attribute={'stimuli':1, 'type':2, 'info':randint(4,7),'color':(255,255,255),'eye_loc':[-999,-999,-999,-999,-999,-999]}
+                    # Keep the Choice stimulus when Mouse_click follows Choice.
+                    # A standalone Mouse_click still uses the original coordinate model.
+                    if not any('Choice' in sublist for sublist in Tasklist_dic[k]):
+                        attribute = {'stimuli':1, 'type':2, 'info':randint(4,7), 'color':(255,255,255)}
+                    attribute['eye_loc'] = [-999,-999,-999,-999,-999,-999]
                     from utility import max_val_click
                     dimension=3
                     for d in range(dimension):
@@ -118,6 +142,7 @@ class entity_generation:
                 attribute = self._apply_judge_identity_defaults(attribute, k)
 
                 attribute = self._apply_judge_identity_defaults(attribute, k)
+
 
                 i.append(attribute)
     
@@ -181,18 +206,14 @@ class entity_generation:
                     attribute['cal_sd_num2']=randint(1,9)
 
                 
-                if ['Count'] in Tasklist_dic[k]:                   
-                    from gui_basic_BE import length_count
-                    
-                    a=randint(1,9)
-                    b=a+length_count-1
-         
-                    attribute = {'stimuli':1,'info':randint(4,7),'color':(255,255,255),'text':'','Start':a,'End':b}  
-                                      
-                
                 if ['Look_at'] in Tasklist_dic[k]:
-                    from gui_basic_BE import eyeloc_ini
-                    attribute={'stimuli':1, 'type':2, 'info':randint(4,7),'eye_loc':(eyeloc_ini["x",k],eyeloc_ini["y",k]),'color':(255,255,255)}
+                    from look_at_target import target_for_task
+                    # Preserve stimulus color/text for See -> Choice -> Press_button.
+                    # Only the gaze target is changed by Look At.
+                    standalone = len(Tasklist_dic[k]) == 1
+                    attribute['_visual_gaze_target'] = target_for_task(standalone)
+                    attribute['eye_loc'] = attribute['_visual_gaze_target']
+                    attribute['type'] = 2
 
                 
                                 
@@ -206,7 +227,11 @@ class entity_generation:
                             attribute['text']=text_list[randint(0, N-1)]
                 
                 if any('Mouse_click' in sublist for sublist in Tasklist_dic[k]):
-                    attribute={'stimuli':1, 'type':2, 'info':randint(4,7),'color':(255,255,255),'eye_loc':[-999,-999,-999,-999,-999,-999]}
+                    # Keep the Choice stimulus when Mouse_click follows Choice.
+                    # A standalone Mouse_click still uses the original coordinate model.
+                    if not any('Choice' in sublist for sublist in Tasklist_dic[k]):
+                        attribute = {'stimuli':1, 'type':2, 'info':randint(4,7), 'color':(255,255,255)}
+                    attribute['eye_loc'] = [-999,-999,-999,-999,-999,-999]
                     from utility import max_val_click
                     dimension=3
                     for d in range(dimension):
@@ -220,6 +245,8 @@ class entity_generation:
                 if ['Hear'] in Tasklist_dic[k]:
                     attribute['type']=3
                              
+
+                attribute = self._apply_count_defaults(attribute, k)
 
                 i.append(attribute)
                 if anim==1:             

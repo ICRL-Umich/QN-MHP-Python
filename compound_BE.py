@@ -97,7 +97,11 @@ def Look_for(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time, count
             _record_look_for_sojourn(env, i[0], k, generation, arrival_time)
             return
                 
+from eye_movement_model import set_visual_gaze_target
+
 def Tracking_1D(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt):
+    # Use a separate gaze target; legacy eye_loc still supports cursor/target logic.
+    attribute.pop('_legacy_tracking_eye', None)
     #Tracking1D_Bounded
     
     from gui_compound_BE import track1D_b_response
@@ -116,12 +120,14 @@ def Tracking_1D(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,gen
         
         while env.now<SIMTIME:
             #Look at and see for cursor        
+            set_visual_gaze_target(attribute, reaction_tracking, reaction_tracking.cursor_x, getattr(reaction_tracking, "cursor_y", None))
             yield env.process(Look_at(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt))
             attribute['eye_loc'][1] = reaction_tracking.cursor_x
             print('eye is on cursor: ',(attribute['eye_loc'][1],0))
             yield env.process(See(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time, generation,ppt,cpt,mpt))
             
             #Look at and see for target
+            set_visual_gaze_target(attribute, reaction_tracking, reaction_tracking.target_x, getattr(reaction_tracking, "target_y", None))
             yield env.process(Look_at(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt))   
             #update target location, which is also the location that mouse should click at
             attribute['eye_loc'][0] = reaction_tracking.target_x
@@ -205,6 +211,8 @@ def Tracking_1D(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,gen
     
                         
 def Tracking_1D_1W(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt):
+    # Use a separate gaze target; legacy eye_loc still supports cursor/target logic.
+    attribute.pop('_legacy_tracking_eye', None)
     #entity information
     
     from gui_compound_BE import track1D_1w_response
@@ -223,12 +231,14 @@ def Tracking_1D_1W(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,
         
         while env.now<SIMTIME:
             #Look at and see for cursor        
+            set_visual_gaze_target(attribute, reaction_tracking, reaction_tracking.cursor_x, getattr(reaction_tracking, "cursor_y", None))
             yield env.process(Look_at(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt))
             attribute['eye_loc'][1] = reaction_tracking.cursor_x
             print('eye is on cursor: ',(attribute['eye_loc'][1],0))
             yield env.process(See(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time, generation,ppt,cpt,mpt))
             
             #Look at and see for target
+            set_visual_gaze_target(attribute, reaction_tracking, reaction_tracking.target_x, getattr(reaction_tracking, "target_y", None))
             yield env.process(Look_at(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt))   
             #update target location, which is also the location that mouse should click at
             attribute['eye_loc'][0] = reaction_tracking.target_x
@@ -313,6 +323,8 @@ def Tracking_1D_1W(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,
 
 
 def Tracking_1D_Random(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt):
+    # Use a separate gaze target; legacy eye_loc still supports cursor/target logic.
+    attribute.pop('_legacy_tracking_eye', None)
     #entity information
     
     from gui_compound_BE import track1D_r_response
@@ -331,12 +343,14 @@ def Tracking_1D_Random(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_t
         
         while env.now<SIMTIME:
             #Look at and see for cursor        
+            set_visual_gaze_target(attribute, reaction_tracking, reaction_tracking.cursor_x, getattr(reaction_tracking, "cursor_y", None))
             yield env.process(Look_at(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt))
             attribute['eye_loc'][1] = reaction_tracking.cursor_x
             print('eye is on cursor: ',(attribute['eye_loc'][1],0))
             yield env.process(See(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time, generation,ppt,cpt,mpt))
             
             #Look at and see for target
+            set_visual_gaze_target(attribute, reaction_tracking, reaction_tracking.target_x, getattr(reaction_tracking, "target_y", None))
             yield env.process(Look_at(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt))   
             #update target location, which is also the location that mouse should click at
             attribute['eye_loc'][0] = reaction_tracking.target_x
@@ -419,6 +433,8 @@ def Tracking_1D_Random(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_t
     reaction_tracking.root.mainloop()
     
 def Tracking_2D(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt):
+    # Use a separate gaze target; legacy eye_loc still supports cursor/target logic.
+    attribute.pop('_legacy_tracking_eye', None)
     #Tracking_2D_Bounded
     from gui_compound_BE import track2D_b_response
     from display_compound_BE import Reaction_tracking2d_b
@@ -437,6 +453,7 @@ def Tracking_2D(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,gen
         
         while env.now<SIMTIME:
             #Look at and see for cursor        
+            set_visual_gaze_target(attribute, reaction_tracking, reaction_tracking.cursor_x, getattr(reaction_tracking, "cursor_y", None))
             yield env.process(Look_at(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt))
             attribute['eye_loc'][1] = reaction_tracking.cursor_x
             attribute['eye_loc'][3] = reaction_tracking.cursor_y
@@ -444,6 +461,7 @@ def Tracking_2D(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,gen
             yield env.process(See(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time, generation,ppt,cpt,mpt))
             
             #Look at and see for target
+            set_visual_gaze_target(attribute, reaction_tracking, reaction_tracking.target_x, getattr(reaction_tracking, "target_y", None))
             yield env.process(Look_at(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt))   
             #update target location, which is also the location that mouse should click at
             attribute['eye_loc'][0] = reaction_tracking.target_x
@@ -564,6 +582,8 @@ def Tracking_2D(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,gen
     
 
 def Tracking_2D_Random(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt):
+    # Use a separate gaze target; legacy eye_loc still supports cursor/target logic.
+    attribute.pop('_legacy_tracking_eye', None)
     #entity information
     
     from gui_compound_BE import track2D_r_response,track2D_r_amp,track2D_r_freq
@@ -584,6 +604,7 @@ def Tracking_2D_Random(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_t
         
         while env.now<SIMTIME:
             #Look at and see for cursor        
+            set_visual_gaze_target(attribute, reaction_tracking, reaction_tracking.cursor_x, getattr(reaction_tracking, "cursor_y", None))
             yield env.process(Look_at(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt))
             attribute['eye_loc'][1] = reaction_tracking.cursor_x
             attribute['eye_loc'][3] = reaction_tracking.cursor_y
@@ -591,6 +612,7 @@ def Tracking_2D_Random(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_t
             yield env.process(See(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time, generation,ppt,cpt,mpt))
             
             #Look at and see for target
+            set_visual_gaze_target(attribute, reaction_tracking, reaction_tracking.target_x, getattr(reaction_tracking, "target_y", None))
             yield env.process(Look_at(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt))   
             #update target location, which is also the location that mouse should click at
             attribute['eye_loc'][0] = reaction_tracking.target_x
@@ -712,6 +734,8 @@ def Tracking_2D_Random(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_t
     reaction_tracking.root.mainloop()
 
 def Tracking_2D_1W(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt):
+    # Use a separate gaze target; legacy eye_loc still supports cursor/target logic.
+    attribute.pop('_legacy_tracking_eye', None)
     #Tracking_2D_Bounded
     from gui_compound_BE import track2D_1w_response
     from display_compound_BE import Reaction_tracking2d_1w
@@ -730,6 +754,7 @@ def Tracking_2D_1W(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,
         
         while env.now<SIMTIME:
             #Look at and see for cursor        
+            set_visual_gaze_target(attribute, reaction_tracking, reaction_tracking.cursor_x, getattr(reaction_tracking, "cursor_y", None))
             yield env.process(Look_at(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt))
             attribute['eye_loc'][1] = reaction_tracking.cursor_x
             attribute['eye_loc'][3] = reaction_tracking.cursor_y
@@ -737,6 +762,7 @@ def Tracking_2D_1W(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,
             yield env.process(See(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time, generation,ppt,cpt,mpt))
             
             #Look at and see for target
+            set_visual_gaze_target(attribute, reaction_tracking, reaction_tracking.target_x, getattr(reaction_tracking, "target_y", None))
             yield env.process(Look_at(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt))   
             #update target location, which is also the location that mouse should click at
             attribute['eye_loc'][0] = reaction_tracking.target_x
@@ -856,6 +882,8 @@ def Tracking_2D_1W(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,
     reaction_tracking.root.mainloop()
 
 def Tracing_1D_Bounded(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt):
+    # Use a separate gaze target; legacy eye_loc still supports cursor/target logic.
+    attribute.pop('_legacy_tracking_eye', None)
     
     from utility import tracing1D_amp_dic
     from gui_compound_BE import tracing1D_b_direc,tracing1D_b_amp,tracing1D_b_response
@@ -873,6 +901,7 @@ def Tracing_1D_Bounded(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_t
         reaction_tracing.moving_forward = False
     re_count = 0 
     #look at and see the point position 
+    set_visual_gaze_target(attribute, reaction_tracing, reaction_tracing.current_x, getattr(reaction_tracing, "current_y", None))
     yield env.process(Look_at(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt))
     attribute['eye_loc'][1] = reaction_tracing.current_x
     print('eye is on the point: ',(reaction_tracing.current_x,reaction_tracing.current_y))
@@ -885,6 +914,7 @@ def Tracing_1D_Bounded(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_t
         #the initial value of reaction_tracing.reach is 1, so the first look at and see of the end would be the initial one before start the moving  
         if reaction_tracing.reach == 1:
             #look at and see the end of the curve 
+            set_visual_gaze_target(attribute, reaction_tracing, (reaction_tracing.end_x if reaction_tracing.moving_forward else 0), None)
             yield env.process(Look_at(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt))
             #which end:
             if reaction_tracing.moving_forward:
@@ -936,6 +966,8 @@ def Tracing_1D_Bounded(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_t
 
 
 def Tracing_1D_1W(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt):
+    # Use a separate gaze target; legacy eye_loc still supports cursor/target logic.
+    attribute.pop('_legacy_tracking_eye', None)
     
     from utility import tracing1D_amp_dic
     from gui_compound_BE import tracing1D_1w_amp,tracing1D_1w_response
@@ -948,6 +980,7 @@ def Tracing_1D_1W(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,g
     
     re_count = 0
     #look at and see the point position 
+    set_visual_gaze_target(attribute, reaction_tracing, reaction_tracing.current_x, getattr(reaction_tracing, "current_y", None))
     yield env.process(Look_at(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt))
     attribute['eye_loc'][1] = reaction_tracing.current_x
     print('eye is on the point: ',(reaction_tracing.current_x,reaction_tracing.current_y))
@@ -957,6 +990,7 @@ def Tracing_1D_1W(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,g
         #check if the current screen changes
         if reaction_tracing.new_screen == 1:
             #look at and see the end of the curve in the current screen 
+            set_visual_gaze_target(attribute, reaction_tracing, reaction_tracing.x_max, None)
             yield env.process(Look_at(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt))
             attribute['eye_loc'][0] = reaction_tracing.x_max
             print('eye is on end: ',(reaction_tracing.x_max,reaction_tracing.y_end))
@@ -1000,6 +1034,8 @@ def Tracing_1D_1W(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,g
     reaction_tracing.root.mainloop()
 
 def Tracing_2D_Bounded(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt):
+    # Use a separate gaze target; legacy eye_loc still supports cursor/target logic.
+    attribute.pop('_legacy_tracking_eye', None)
     
     from utility import tracing2D_amp_x_dic,tracing2D_amp_y_dic
     from gui_compound_BE import tracing2D_b_direc,tracing2D_b_x_amp,tracing2D_b_y_amp,tracing2D_b_response
@@ -1016,6 +1052,7 @@ def Tracing_2D_Bounded(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_t
         reaction_tracing.moving_forward = False
     re_count = 0
     #look at and see the point position 
+    set_visual_gaze_target(attribute, reaction_tracing, reaction_tracing.current_x, getattr(reaction_tracing, "current_y", None))
     yield env.process(Look_at(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt))
     attribute['eye_loc'][2] = reaction_tracing.current_x
     attribute['eye_loc'][3] = reaction_tracing.current_y
@@ -1028,6 +1065,7 @@ def Tracing_2D_Bounded(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_t
         
         if reaction_tracing.reach ==1:
             #look at and see the end of the curve 
+            set_visual_gaze_target(attribute, reaction_tracing, (reaction_tracing.end_x if reaction_tracing.moving_forward else 0), (reaction_tracing.end_y if reaction_tracing.moving_forward else reaction_tracing.start_y))
             yield env.process(Look_at(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt))
             #which end:
             if reaction_tracing.moving_forward:
@@ -1086,6 +1124,8 @@ def Tracing_2D_Bounded(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_t
     reaction_tracing.root.mainloop()
     
 def Tracing_2D_1W(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt):
+    # Use a separate gaze target; legacy eye_loc still supports cursor/target logic.
+    attribute.pop('_legacy_tracking_eye', None)
     
     from utility import tracing2D_amp_x_dic,tracing2D_amp_y_dic
     from gui_compound_BE import tracing2D_1w_x_amp,tracing2D_1w_y_amp,tracing2D_1w_response
@@ -1097,6 +1137,7 @@ def Tracing_2D_1W(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,g
     reaction_tracing.plot_curve()
     re_count = 0
     #look at and see the point position 
+    set_visual_gaze_target(attribute, reaction_tracing, reaction_tracing.current_x, getattr(reaction_tracing, "current_y", None))
     yield env.process(Look_at(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt))
     attribute['eye_loc'][2] = reaction_tracing.current_x
     attribute['eye_loc'][3] = reaction_tracing.current_y
@@ -1108,6 +1149,7 @@ def Tracing_2D_1W(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,g
         #check if the current screen changes
         if reaction_tracing.new_screen == 1:
             #look at and see the end of the curve in the current screen 
+            set_visual_gaze_target(attribute, reaction_tracing, reaction_tracing.x_max, reaction_tracing.y_end)
             yield env.process(Look_at(qn_mhp, env, i, j, k, attribute, outserver_dic, arrival_time,generation,ppt,cpt,mpt))
             attribute['eye_loc'][0] = reaction_tracing.x_max
             attribute['eye_loc'][1] = reaction_tracing.y_end
