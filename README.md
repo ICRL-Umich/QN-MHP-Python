@@ -62,4 +62,5 @@ The software stores GUI configurations and experiment parameters in its active s
 The software serves as both a QN-MHP demonstration environment and a foundation for custom task simulations. Developers can reuse and combine individual BE implementations, adjust their parameters, and construct workflows beyond those exposed by the GUI.
 
 **Example research application:** Wang, Y., Liu, Y., & Yang, X. J. (2025). *Experimental Investigation and Queuing Network (QN) Modeling of Speed-Accuracy Tradeoff (SAT) and Speed-Confidence Tradeoff (SCT) in Multi-Task Human-Robot Collaboration (HRC).* Proceedings of the Human Factors and Ergonomics Society Annual Meeting, 69(1), 541–547.
+
 **QN-MHP Architecture:** Liu, Y., Feyen, R., & Tsimhoni, O. (2006). Queueing Network-Model Human Processor (QN-MHP) A computational architecture for multitask performance in human-machine systems. ACM Transactions on Computer-Human Interaction (TOCHI), 13(1), 37-70.
