@@ -27,7 +27,6 @@ The task editor provides up to **five task slots**. Simultaneous execution depen
 
 **Compound BEs:** `Look_for`; tracking variants (`Tracking_1D`, `Tracking_1D_1W`, `Tracking_1D_Random`, `Tracking_2D`, `Tracking_2D_Random`, `Tracking_2D_1W`); and tracing variants (`Tracing_1D_Bounded`, `Tracing_1D_1W`, `Tracing_2D_Bounded`, `Tracing_2D_1W`). Compound BEs coordinate basic processing and response behaviors.
 
-A standalone **Look At** task generates visual targets and processes each through **Server W → Server Y → Server Z → Eye Server**. Its reaction window distinguishes the current fixation from the next target. **Look For** performs visual search across a configurable set of targets; it has a separate reaction-window layout.
 
 ## Coordinates and eye movement
 
